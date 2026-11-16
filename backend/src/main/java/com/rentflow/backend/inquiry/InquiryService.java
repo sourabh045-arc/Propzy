@@ -92,6 +92,13 @@ public class InquiryService {
     @Transactional
     public InquiryResponse updateStatus(String email, Long inquiryId, InquiryStatus newStatus) {
         User owner = currentUser(email);
+
+        if (owner.getRole() != Role.OWNER) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN,
+                "Only property owners can manage inquiries");
+        }
+
         Inquiry inquiry = inquiries.findByIdWithDetails(inquiryId)
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND, "Inquiry not found"));
@@ -102,7 +109,19 @@ public class InquiryService {
                 "You can only manage inquiries for your own properties");
         }
 
+        if (newStatus != InquiryStatus.ACCEPTED && newStatus != InquiryStatus.REJECTED) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Inquiry status can only be updated to ACCEPTED or REJECTED");
+        }
+
+        if (inquiry.getStatus() != InquiryStatus.PENDING) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Inquiry has already been " + inquiry.getStatus().name().toLowerCase(Locale.ROOT) + " and cannot be updated again");
+        }
+
         inquiry.setStatus(newStatus);
-        return InquiryResponse.from(inquiries.save(inquiry));
+        return InquiryResponse.from(inquiries.saveAndFlush(inquiry));
     }
 }

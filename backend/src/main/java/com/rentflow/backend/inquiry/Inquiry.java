@@ -28,6 +28,10 @@ public class Inquiry {
     @Column(nullable = false, length = 20)
     private InquiryStatus status = InquiryStatus.PENDING;
 
+    @Version
+    @Column(nullable = false)
+    private Long version = 0L;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -45,6 +49,9 @@ public class Inquiry {
         if (status == null) {
             status = InquiryStatus.PENDING;
         }
+        if (version == null) {
+            version = 0L;
+        }
     }
 
     @PreUpdate
@@ -57,6 +64,7 @@ public class Inquiry {
     public User getTenant() { return tenant; }
     public String getMessage() { return message; }
     public InquiryStatus getStatus() { return status; }
+    public Long getVersion() { return version; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -64,4 +72,5 @@ public class Inquiry {
     public void setTenant(User tenant) { this.tenant = tenant; }
     public void setMessage(String message) { this.message = message; }
     public void setStatus(InquiryStatus status) { this.status = status; }
+    public void setVersion(Long version) { this.version = version; }
 }

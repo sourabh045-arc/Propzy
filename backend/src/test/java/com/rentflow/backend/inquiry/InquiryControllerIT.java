@@ -231,4 +231,119 @@ class InquiryControllerIT {
                 .content("{\"status\": \"REJECTED\"}"))
             .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("tenant cannot update inquiry status")
+    void tenantCannotUpdateStatus() throws Exception {
+        String ownerToken = registerAndLogin("Owner Alice", "alice.owner@test.com", "OWNER");
+        String tenantToken = registerAndLogin("Tenant Bob", "bob.tenant@test.com", "TENANT");
+        Long propId = createTestProperty(ownerToken);
+
+        MvcResult inqRes = mvc.perform(post("/api/v1/inquiries/property/" + propId)
+                .header("Authorization", "Bearer " + tenantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\": \"I am interested\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        long inquiryId = objectMapper.readTree(inqRes.getResponse().getContentAsString())
+            .get("id").asLong();
+
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + tenantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"ACCEPTED\"}"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("accepted inquiry cannot subsequently be rejected (enforces state transition rules)")
+    void acceptedInquiryCannotBeRejected() throws Exception {
+        String ownerToken = registerAndLogin("Owner Carol", "carol.owner@test.com", "OWNER");
+        String tenantToken = registerAndLogin("Tenant Dave", "dave.tenant@test.com", "TENANT");
+        Long propId = createTestProperty(ownerToken);
+
+        MvcResult inqRes = mvc.perform(post("/api/v1/inquiries/property/" + propId)
+                .header("Authorization", "Bearer " + tenantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\": \"Can I rent this?\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        long inquiryId = objectMapper.readTree(inqRes.getResponse().getContentAsString())
+            .get("id").asLong();
+
+        // 1. Accept the inquiry
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"ACCEPTED\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ACCEPTED"));
+
+        // 2. Attempt to reject the already accepted inquiry -> 409 Conflict
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"REJECTED\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.error").value("Conflict"));
+    }
+
+    @Test
+    @DisplayName("rejected inquiry cannot subsequently be accepted")
+    void rejectedInquiryCannotBeAccepted() throws Exception {
+        String ownerToken = registerAndLogin("Owner Eve", "eve.owner@test.com", "OWNER");
+        String tenantToken = registerAndLogin("Tenant Frank", "frank.tenant@test.com", "TENANT");
+        Long propId = createTestProperty(ownerToken);
+
+        MvcResult inqRes = mvc.perform(post("/api/v1/inquiries/property/" + propId)
+                .header("Authorization", "Bearer " + tenantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\": \"Can I rent this?\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        long inquiryId = objectMapper.readTree(inqRes.getResponse().getContentAsString())
+            .get("id").asLong();
+
+        // 1. Reject the inquiry
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"REJECTED\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("REJECTED"));
+
+        // 2. Attempt to accept the already rejected inquiry -> 409 Conflict
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"ACCEPTED\"}"))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("invalid target status (such as PENDING) returns 400 Bad Request")
+    void invalidTargetStatusReturns400() throws Exception {
+        String ownerToken = registerAndLogin("Owner Grace", "grace.owner@test.com", "OWNER");
+        String tenantToken = registerAndLogin("Tenant Hank", "hank.tenant@test.com", "TENANT");
+        Long propId = createTestProperty(ownerToken);
+
+        MvcResult inqRes = mvc.perform(post("/api/v1/inquiries/property/" + propId)
+                .header("Authorization", "Bearer " + tenantToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"message\": \"Inquiry\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        long inquiryId = objectMapper.readTree(inqRes.getResponse().getContentAsString())
+            .get("id").asLong();
+
+        mvc.perform(patch("/api/v1/inquiries/" + inquiryId + "/status")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"PENDING\"}"))
+            .andExpect(status().isBadRequest());
+    }
 }

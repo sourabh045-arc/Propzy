@@ -50,7 +50,7 @@ public class Property {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    protected Property() {
+    public Property() {
     }
 
     @PrePersist

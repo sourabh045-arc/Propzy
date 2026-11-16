@@ -14,8 +14,8 @@ public class HealthController {
     public Map<String, String> health() {
         return Map.of(
                 "status", "UP",
-                "application", "RentFlow",
-                "message", "RentFlow backend is running"
+                "application", "Propzy",
+                "message", "Propzy backend is running"
         );
     }
 }

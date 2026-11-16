@@ -1,6 +1,6 @@
-
 package com.rentflow.backend.user;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,7 +53,16 @@ public class UserService {
         );
         user.setRole(request.role());
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An account with this email already exists",
+                    ex
+            );
+        }
 
         return new RegisterResponse(
                 savedUser.getId(),

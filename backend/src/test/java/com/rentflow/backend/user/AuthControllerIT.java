@@ -316,11 +316,111 @@ class AuthControllerIT {
         }
 
         @Test
+        @DisplayName("malformed JSON body returns 400 Bad Request with standardized error structure")
+        void malformedJsonReturns400() throws Exception {
+            mvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"fullName\": \"Broken\", \"email\": "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Invalid request body"))
+                .andExpect(jsonPath("$.timestamp").exists());
+        }
+
+        @Test
+        @DisplayName("concurrent registration with identical email produces exactly one 201 and 409 for conflicts")
+        void concurrentRegistrationProducesConflict() throws Exception {
+            int threads = 4;
+            java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threads);
+            java.util.concurrent.CountDownLatch startLatch = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.CountDownLatch doneLatch = new java.util.concurrent.CountDownLatch(threads);
+            java.util.List<Integer> statusCodes = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+            String body = """
+                {
+                    "fullName": "Concurrent Tester",
+                    "email": "concurrent.race@example.com",
+                    "password": "password123",
+                    "role": "TENANT"
+                }
+                """;
+
+            for (int i = 0; i < threads; i++) {
+                executor.submit(() -> {
+                    try {
+                        startLatch.await();
+                        MvcResult res = mvc.perform(post("/api/v1/auth/register")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                            .andReturn();
+                        statusCodes.add(res.getResponse().getStatus());
+                    } catch (Exception ignored) {
+                    } finally {
+                        doneLatch.countDown();
+                    }
+                });
+            }
+
+            startLatch.countDown();
+            doneLatch.await(5, java.util.concurrent.TimeUnit.SECONDS);
+            executor.shutdown();
+
+            long createdCount = statusCodes.stream().filter(s -> s == 201).count();
+            long conflictCount = statusCodes.stream().filter(s -> s == 409).count();
+
+            org.junit.jupiter.api.Assertions.assertEquals(1, createdCount, "Exactly one concurrent registration must succeed with 201");
+            org.junit.jupiter.api.Assertions.assertEquals(threads - 1, conflictCount, "All other concurrent registrations must return 409 Conflict");
+            org.junit.jupiter.api.Assertions.assertTrue(userRepository.findByEmail("concurrent.race@example.com").isPresent());
+        }
+
+        @Test
         @DisplayName("invalid token returns 401")
         void meInvalidToken() throws Exception {
             mvc.perform(get("/api/v1/auth/me")
                     .header("Authorization", "Bearer invalid.token.here"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.error").value("Unauthorized"));
+        }
+
+        @Test
+        @DisplayName("expired token allows public property browsing anonymously")
+        void expiredTokenAllowsPublicBrowsing() throws Exception {
+            String expiredToken = io.jsonwebtoken.Jwts.builder()
+                .subject("expired@example.com")
+                .claim("role", "TENANT")
+                .issuedAt(new java.util.Date(System.currentTimeMillis() - 7200000))
+                .expiration(new java.util.Date(System.currentTimeMillis() - 3600000))
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                    io.jsonwebtoken.io.Decoders.BASE64.decode("dGVzdC1zZWNyZXQta2V5LWZvci1wcm9wenktZGV2LW9ubHktMTIzNDU2Nzg5MA==")
+                ))
+                .compact();
+
+            // Public endpoint must succeed anonymously even with expired bearer token
+            mvc.perform(get("/api/v1/properties")
+                    .header("Authorization", "Bearer " + expiredToken))
+                .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("expired token rejects protected endpoint with 401 Unauthorized")
+        void expiredTokenRejectsProtectedEndpoint() throws Exception {
+            String expiredToken = io.jsonwebtoken.Jwts.builder()
+                .subject("expired@example.com")
+                .claim("role", "TENANT")
+                .issuedAt(new java.util.Date(System.currentTimeMillis() - 7200000))
+                .expiration(new java.util.Date(System.currentTimeMillis() - 3600000))
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                    io.jsonwebtoken.io.Decoders.BASE64.decode("dGVzdC1zZWNyZXQta2V5LWZvci1wcm9wenktZGV2LW9ubHktMTIzNDU2Nzg5MA==")
+                ))
+                .compact();
+
+            // Protected endpoint must reject expired token with 401
+            mvc.perform(get("/api/v1/auth/me")
+                    .header("Authorization", "Bearer " + expiredToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
         }
     }
 }

@@ -69,10 +69,14 @@ public class SecurityConfig {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint((request, response, exception) ->
-                    response.sendError(
-                        HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"
-                    )))
+                .authenticationEntryPoint((request, response, exception) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write(String.format(
+                        "{\"timestamp\":\"%s\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Full authentication is required to access this resource\"}",
+                        java.time.Instant.now().toString()
+                    ));
+                }))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/v1/health",

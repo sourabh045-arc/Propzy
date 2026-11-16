@@ -43,22 +43,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            if (email == null || email.isBlank() || role == null) {
-                response.sendError(401, "Invalid JWT token");
-                return;
+            if (email != null && !email.isBlank() && role != null) {
+                String authority = "ROLE_" + Role.valueOf(role).name();
+                var authentication = new UsernamePasswordAuthenticationToken(
+                    email, null, List.of(new SimpleGrantedAuthority(authority)));
+
+                authentication.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                SecurityContextHolder.clearContext();
             }
-
-            String authority = "ROLE_" + Role.valueOf(role).name();
-            var authentication = new UsernamePasswordAuthenticationToken(
-                email, null, List.of(new SimpleGrantedAuthority(authority)));
-
-            authentication.setDetails(
-                new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (JwtException | IllegalArgumentException exception) {
+            // Expired or invalid token: clear SecurityContext so anonymous authentication applies.
+            // Spring Security will allow public endpoints (e.g. GET /api/v1/properties) to proceed
+            // and reject protected endpoints with 401 via AuthenticationEntryPoint.
             SecurityContextHolder.clearContext();
-            response.sendError(401, "Invalid or expired JWT token");
-            return;
         }
 
         filterChain.doFilter(request, response);

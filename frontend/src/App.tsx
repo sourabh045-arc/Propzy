@@ -3,13 +3,31 @@ import axios from 'axios'
 import {
   Search, MapPin, Home, KeyRound, ArrowRight, ShieldCheck, X,
   LoaderCircle, Bed, Bath, PlusCircle, LogOut, User as UserIcon, Trash2,
-  MessageSquare, Check, Ban, Clock, Send
+  MessageSquare, Check, Ban, Clock, Send, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import './App.css'
 
+// ISSUE 1: In production, relative URL allows Nginx to reverse-proxy requests
+// to backend internal service, eliminating accidental calls to visitor's localhost.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_URL || '',
 })
+
+// ISSUE 2: Axios response interceptor cleans up invalid or expired tokens automatically
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const hadToken = !!(localStorage.getItem('propzy_token') || localStorage.getItem('rentflow_token'))
+      if (hadToken) {
+        localStorage.removeItem('propzy_token')
+        localStorage.removeItem('rentflow_token')
+        delete api.defaults.headers.common.Authorization
+      }
+    }
+    return Promise.reject(error)
+  }
+)
 
 export type Property = {
   id: number
@@ -59,6 +77,12 @@ function App() {
   const [message, setMessage] = useState('')
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
 
+  // ISSUE 6: Pagination state
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const pageSize = 12
+
   // Inquiry state
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [activePropertyForInquiry, setActivePropertyForInquiry] = useState<Property | null>(null)
@@ -79,14 +103,20 @@ function App() {
     bathrooms: '1',
   })
 
-  async function fetchProperties(cityQuery?: string, min?: string, max?: string) {
+  async function fetchProperties(targetPage = 0, cityQuery?: string, min?: string, max?: string) {
     setLoading(true)
     setMessage('')
     try {
-      const params: Record<string, string> = { page: '0', size: '24' }
       const q = cityQuery !== undefined ? cityQuery : query
       const mn = min !== undefined ? min : minRent
       const mx = max !== undefined ? max : maxRent
+
+      const params: Record<string, string> = {
+        page: String(targetPage),
+        size: String(pageSize),
+        sortBy: 'createdAt',
+        direction: 'desc',
+      }
 
       if (q.trim()) params.city = q.trim()
       if (mn.trim()) params.minRent = mn.trim()
@@ -96,12 +126,27 @@ function App() {
       const data = r.data
       const list: Property[] = Array.isArray(data) ? data : data.content || []
       setProperties(list)
-      const total = Array.isArray(data) ? data.length : (data.page?.totalElements ?? data.totalElements ?? list.length)
-      setStatus(`Showing ${total} available properties`)
+
+      const total = Array.isArray(data)
+        ? data.length
+        : (data.page?.totalElements ?? data.totalElements ?? list.length)
+      const pages = Array.isArray(data)
+        ? 1
+        : (data.page?.totalPages ?? data.totalPages ?? Math.max(1, Math.ceil(total / pageSize)))
+
+      setTotalElements(total)
+      setTotalPages(pages)
+      setCurrentPage(targetPage)
+
+      if (list.length === 0) {
+        setStatus('No matching properties found.')
+      } else {
+        setStatus(`Showing ${list.length} of ${total} available properties (Page ${targetPage + 1} of ${pages})`)
+      }
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: { message?: string } } }
       if (err.response?.status === 401) {
-        setStatus('Property search requires login under current rules.')
+        setStatus('Property search requires authentication under current rules.')
       } else {
         setStatus('Could not load properties. Ensure backend is running.')
       }
@@ -110,9 +155,9 @@ function App() {
     }
   }
 
-  // Restore session on component mount & fetch initial properties
+  // Restore session on component mount & fetch initial properties safely
   useEffect(() => {
-    const token = localStorage.getItem('rentflow_token')
+    const token = localStorage.getItem('propzy_token') || localStorage.getItem('rentflow_token')
     if (token) {
       api.defaults.headers.common.Authorization = `Bearer ${token}`
       api.get('/api/v1/auth/me')
@@ -120,15 +165,18 @@ function App() {
           setCurrentUser(res.data)
         })
         .catch(() => {
+          localStorage.removeItem('propzy_token')
           localStorage.removeItem('rentflow_token')
           delete api.defaults.headers.common.Authorization
+          setCurrentUser(null)
         })
     }
-    fetchProperties('', '', '')
+    fetchProperties(0, '', '', '')
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleLogout() {
+    localStorage.removeItem('propzy_token')
     localStorage.removeItem('rentflow_token')
     delete api.defaults.headers.common.Authorization
     setCurrentUser(null)
@@ -150,7 +198,7 @@ function App() {
       const r = await api.get('/actuator/health')
       setStatus(`Backend status: ${r.data.status}`)
     } catch {
-      setStatus('Backend is unreachable. Start Spring Boot on port 8080.')
+      setStatus('Backend is unreachable. Start Spring Boot or Docker container.')
     } finally {
       setLoading(false)
     }
@@ -179,7 +227,7 @@ function App() {
       const token = data.token || data.accessToken || data.access_token
 
       if (token) {
-        localStorage.setItem('rentflow_token', token)
+        localStorage.setItem('propzy_token', token)
         api.defaults.headers.common.Authorization = `Bearer ${token}`
         const meRes = await api.get('/api/v1/auth/me')
         setCurrentUser(meRes.data)
@@ -188,7 +236,7 @@ function App() {
       setMessage(modal === 'register' ? 'Account created successfully!' : 'Login successful!')
       setModal(null)
       setStatus(`Welcome, ${data.fullName || 'back'}!`)
-      fetchProperties()
+      fetchProperties(0)
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string; fieldErrors?: Record<string, string> } } }
       const errData = err.response?.data
@@ -233,7 +281,7 @@ function App() {
         bedrooms: '1',
         bathrooms: '1',
       })
-      fetchProperties()
+      fetchProperties(0)
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string; fieldErrors?: Record<string, string> } } }
       const errData = err.response?.data
@@ -253,7 +301,7 @@ function App() {
     try {
       await api.delete(`/api/v1/properties/${id}`)
       setMessage('Property listing deleted.')
-      fetchProperties()
+      fetchProperties(currentPage)
     } catch {
       setMessage('Failed to delete property. You may only delete your own listings.')
     }
@@ -318,16 +366,22 @@ function App() {
       const r = await api.patch(`/api/v1/inquiries/${id}/status`, { status: newStatus })
       setInquiries(prev => prev.map(inq => inq.id === id ? r.data : inq))
       setMessage(`Inquiry ${newStatus.toLowerCase()} successfully.`)
-    } catch {
-      setMessage('Failed to update inquiry status.')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      setMessage(err.response?.data?.message || 'Failed to update inquiry status.')
     }
+  }
+
+  function handleFilterSubmit(e?: React.FormEvent) {
+    if (e) e.preventDefault()
+    fetchProperties(0)
   }
 
   return (
     <main>
       <nav className="navbar">
-        <a className="brand" href="#">
-          <span className="brand-icon"><Home size={21}/></span> rentflow<span className="dot">.</span>
+        <a className="brand" href="#" aria-label="Propzy Home">
+          <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img" />
         </a>
         <div className="nav-links">
           <a href="#explore">Explore stays</a>
@@ -371,7 +425,7 @@ function App() {
         <div className="hero-copy">
           <span className="eyebrow"><span className="live-dot"/> RENTING, REIMAGINED</span>
           <h1>Find a place<br/>to <span>call home.</span></h1>
-          <p>Discover spaces that fit your life. Verified listings, direct owner connections, transparent renting.</p>
+          <p>Discover spaces that fit your life. Verified listings, direct owner connections, transparent renting on Propzy.</p>
           <div className="search-card">
             <label>
               <MapPin size={19}/>
@@ -380,16 +434,16 @@ function App() {
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && fetchProperties()}
-                  placeholder="Mumbai, Bengaluru, Delhi..."
+                  onKeyDown={e => e.key === 'Enter' && handleFilterSubmit(e)}
+                  placeholder="Mumbai, Bengaluru, Delhi, Pune..."
                 />
               </span>
             </label>
-            <button onClick={() => fetchProperties()} disabled={loading}>
+            <button onClick={() => handleFilterSubmit()} disabled={loading}>
               <Search size={18}/> Search homes
             </button>
           </div>
-          <div className="trust"><ShieldCheck size={17}/> Simple search. Clear choices. Better renting.</div>
+          <div className="trust"><ShieldCheck size={17}/> Simple search. Clear choices. Better renting with Propzy.</div>
         </div>
         <div className="hero-art">
           <img
@@ -432,7 +486,7 @@ function App() {
               onChange={e => setMaxRent(e.target.value)}
               className="filter-input"
             />
-            <button className="btn-outline btn-sm" onClick={() => fetchProperties()} disabled={loading}>
+            <button className="btn-outline btn-sm" onClick={() => handleFilterSubmit()} disabled={loading}>
               Filter
             </button>
             <button className="btn-dark btn-sm" onClick={checkBackend} disabled={loading}>
@@ -442,48 +496,76 @@ function App() {
         </div>
 
         {properties.length > 0 ? (
-          <div className="property-grid">
-            {properties.map(p => (
-              <article key={p.id} className="property-card">
-                <div className="property-badge">{p.propertyType}</div>
-                <h3>{p.title}</h3>
-                <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
-                {p.description && <p className="property-desc">{p.description}</p>}
-                <div className="property-specs">
-                  <span><Bed size={15}/> {p.bedrooms} Beds</span>
-                  <span><Bath size={15}/> {p.bathrooms} Baths</span>
-                </div>
-                <div className="property-footer">
-                  <b className="property-price">
-                    ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                    <small> / month</small>
-                  </b>
-                  <div className="property-card-actions">
-                    {currentUser && currentUser.userId === p.ownerId ? (
-                      <button
-                        className="btn-danger-icon"
-                        onClick={() => deleteProperty(p.id)}
-                        title="Delete your property listing"
-                      >
-                        <Trash2 size={16}/>
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          className="btn-outline btn-xs"
-                          onClick={() => openInquiryModal(p)}
-                          title="Contact owner about this listing"
-                        >
-                          <MessageSquare size={13}/> Inquire
-                        </button>
-                        <span className="owner-tag">by {p.ownerName}</span>
-                      </>
-                    )}
+          <>
+            <div className="property-grid">
+              {properties.map(p => (
+                <article key={p.id} className="property-card">
+                  <div className="property-badge">{p.propertyType}</div>
+                  <h3>{p.title}</h3>
+                  <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
+                  {p.description && <p className="property-desc">{p.description}</p>}
+                  <div className="property-specs">
+                    <span><Bed size={15}/> {p.bedrooms} Beds</span>
+                    <span><Bath size={15}/> {p.bathrooms} Baths</span>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+                  <div className="property-footer">
+                    <b className="property-price">
+                      ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                      <small> / month</small>
+                    </b>
+                    <div className="property-card-actions">
+                      {currentUser && currentUser.userId === p.ownerId ? (
+                        <button
+                          className="btn-danger-icon"
+                          onClick={() => deleteProperty(p.id)}
+                          title="Delete your property listing"
+                        >
+                          <Trash2 size={16}/>
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className="btn-outline btn-xs"
+                            onClick={() => openInquiryModal(p)}
+                            title="Contact owner about this listing"
+                          >
+                            <MessageSquare size={13}/> Inquire
+                          </button>
+                          <span className="owner-tag">by {p.ownerName}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* ISSUE 6: Functional Pagination Bar */}
+            <div className="pagination-bar">
+              <div className="pagination-info">
+                Showing page <b>{currentPage + 1}</b> of <b>{Math.max(1, totalPages)}</b> ({totalElements} total properties)
+              </div>
+              <div className="pagination-controls">
+                <button
+                  className="btn-outline btn-sm"
+                  disabled={currentPage === 0 || loading}
+                  onClick={() => fetchProperties(currentPage - 1)}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft size={16}/> Previous
+                </button>
+                <span className="pagination-page-badge">{currentPage + 1}</span>
+                <button
+                  className="btn-outline btn-sm"
+                  disabled={currentPage >= totalPages - 1 || loading}
+                  onClick={() => fetchProperties(currentPage + 1)}
+                  aria-label="Next page"
+                >
+                  Next <ChevronRight size={16}/>
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="empty-state">
             <Home size={40}/>
@@ -497,7 +579,7 @@ function App() {
         <div>
           <span className="eyebrow">LET'S GET YOU MOVING</span>
           <h2>Your next home is a few steps away.</h2>
-          <p>Sign in or create an account to start browsing, inquiring, and listing properties.</p>
+          <p>Sign in or create an account to start browsing, inquiring, and listing properties on Propzy.</p>
         </div>
         <div className="nav-actions">
           {!currentUser ? (
@@ -514,9 +596,11 @@ function App() {
       </section>
 
       <footer>
-        <a className="brand" href="#">rentflow<span className="dot">.</span></a>
+        <a className="brand" href="#" aria-label="Propzy Home">
+          <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img-sm" />
+        </a>
         <span>Find your place. Start your next chapter.</span>
-        <span>© 2026 RentFlow — Production Platform</span>
+        <span>© 2026 Propzy — Production Platform</span>
       </footer>
 
       {/* Auth Modal (Login / Register) */}
@@ -524,9 +608,9 @@ function App() {
         <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Close"><X size={20}/></button>
-            <span className="eyebrow">WELCOME TO RENTFLOW</span>
+            <span className="eyebrow">WELCOME TO PROPZY</span>
             <h2 id="auth-title">{modal === 'register' ? 'Create your account' : 'Welcome back'}</h2>
-            <p>{modal === 'register' ? 'Start finding your next home.' : 'Log in to continue to RentFlow.'}</p>
+            <p>{modal === 'register' ? 'Start finding your next home.' : 'Log in to continue to Propzy.'}</p>
             <form onSubmit={submitAuth}>
               {modal === 'register' && (
                 <>
@@ -584,7 +668,7 @@ function App() {
               </button>
             </form>
             <p className="modal-switch">
-              {modal === 'register' ? 'Already have an account?' : 'New to RentFlow?'}{' '}
+              {modal === 'register' ? 'Already have an account?' : 'New to Propzy?'}{' '}
               <button onClick={() => { setMessage(''); setModal(modal === 'register' ? 'login' : 'register') }}>
                 {modal === 'register' ? 'Log in' : 'Create account'}
               </button>

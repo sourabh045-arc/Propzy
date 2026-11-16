@@ -150,3 +150,13 @@ footer .brand { color:#252b23; font-size:21px; }
 .btn-success-sm:hover { background: #16a34a; }
 .btn-danger-sm { background: #ef4444; color: #fff; border: 0; padding: 5px 10px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .btn-danger-sm:hover { background: #dc2626; }
+
+/* --- Propzy Logo & Pagination Styles --- */
+.brand-logo-img { height: 42px; width: auto; border-radius: 8px; object-fit: contain; display: block; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
+.brand-logo-img-sm { height: 32px; width: auto; border-radius: 6px; object-fit: contain; display: block; }
+.pagination-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e4dc; flex-wrap: wrap; gap: 14px; }
+.pagination-info { font-size: 13px; color: #5a6355; }
+.pagination-info b { color: #252b23; }
+.pagination-controls { display: flex; align-items: center; gap: 8px; }
+.pagination-page-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 8px; background: #293b28; color: #fff; font-size: 13px; font-weight: 700; border-radius: 8px; }
+

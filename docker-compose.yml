@@ -1,38 +1,38 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: rentflow-postgres
+    container_name: propzy-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-rentflow}
-      POSTGRES_USER: ${DB_USERNAME:-rentflow_user}
+      POSTGRES_DB: ${DB_NAME:-propzy}
+      POSTGRES_USER: ${DB_USERNAME:-propzy_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in .env}
     ports:
       # Bound strictly to localhost loopback for administrative/maintenance access; never public 0.0.0.0
       - "127.0.0.1:${HOST_DB_PORT:-5433}:5432"
     volumes:
-      - rentflow_postgres_data:/var/lib/postgresql/data
+      - propzy_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-rentflow_user} -d ${DB_NAME:-rentflow}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-propzy_user} -d ${DB_NAME:-propzy}"]
       interval: 5s
       timeout: 5s
       retries: 10
     networks:
-      - rentflow-net
+      - propzy-net
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: rentflow-backend
+    container_name: propzy-backend
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-rentflow}
-      DB_USERNAME: ${DB_USERNAME:-rentflow_user}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-propzy}
+      DB_USERNAME: ${DB_USERNAME:-propzy_user}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided in .env}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided in .env}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:80}
@@ -44,24 +44,24 @@ services:
       timeout: 5s
       retries: 6
     networks:
-      - rentflow-net
+      - propzy-net
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: rentflow-frontend
+    container_name: propzy-frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     networks:
-      - rentflow-net
+      - propzy-net
 
 networks:
-  rentflow-net:
+  propzy-net:
     driver: bridge
 
 volumes:
-  rentflow_postgres_data:
+  propzy_postgres_data:

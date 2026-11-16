@@ -1,22 +1,21 @@
-
 services:
   postgres:
-    image: postgres:16
-    container_name: rentflow-postgres
+    image: postgres:16-alpine
+    container_name: propzy-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: rentflow
-      POSTGRES_USER: rentflow_user
+      POSTGRES_DB: propzy
+      POSTGRES_USER: propzy_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD before starting Compose}
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
-      - rentflow_postgres_data:/var/lib/postgresql/data
+      - propzy_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rentflow_user -d rentflow"]
+      test: ["CMD-SHELL", "pg_isready -U propzy_user -d propzy"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  rentflow_postgres_data:
+  propzy_postgres_data:

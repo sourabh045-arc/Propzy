@@ -1,4 +1,4 @@
-name: RentFlow 2.0 CI
+name: Propzy CI
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend-test:
-    name: Backend Build & Test (Java 21 / Spring Boot 4)
+    name: Backend Build & Test (Java 21 / Spring Boot 4 / PostgreSQL Testcontainers)
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,12 +24,12 @@ jobs:
       - name: Make Maven wrapper executable
         run: chmod +x backend/mvnw
 
-      - name: Run Backend Tests & Package
+      - name: Run Backend Tests & Package (with PostgreSQL Testcontainers)
         working-directory: backend
         run: ./mvnw -B clean verify
 
   frontend-check:
-    name: Frontend Lint & Build (React 19 / TypeScript / Vite)
+    name: Frontend Lint, Test & Build (React 19 / TypeScript / Vite / Vitest)
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -49,6 +49,10 @@ jobs:
       - name: Run Linting (oxlint)
         working-directory: frontend
         run: npm run lint
+
+      - name: Run Automated Frontend Tests (Vitest)
+        working-directory: frontend
+        run: npm test
 
       - name: Build Production Bundle (tsc + vite)
         working-directory: frontend
@@ -70,11 +74,11 @@ jobs:
         with:
           context: ./backend
           push: false
-          tags: rentflow-backend:ci
+          tags: propzy-backend:ci
 
       - name: Build Frontend Docker Image
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           push: false
-          tags: rentflow-frontend:ci
+          tags: propzy-frontend:ci

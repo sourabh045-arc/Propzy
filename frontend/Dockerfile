@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for RentFlow Frontend
+# Multi-stage Dockerfile for Propzy Frontend
 # Stage 1: Build static assets using Node.js
 FROM node:20-alpine AS builder
 WORKDIR /app

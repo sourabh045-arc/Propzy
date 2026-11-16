@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for RentFlow Backend
+# Multi-stage Dockerfile for Propzy Backend
 # Stage 1: Build JAR with Maven Wrapper and run all automated tests
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /workspace
@@ -18,8 +18,8 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Run as non-root user for container security
-RUN addgroup -S rentflow && adduser -S rentflow -G rentflow
-USER rentflow:rentflow
+RUN addgroup -S propzy && adduser -S propzy -G propzy
+USER propzy:propzy
 
 # Copy the verified, packaged JAR from builder stage
 COPY --from=builder /workspace/target/*.jar app.jar

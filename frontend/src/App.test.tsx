@@ -38,8 +38,8 @@ describe('Propzy Frontend Application', () => {
     render(<App />)
     const logos = screen.getAllByAltText('Propzy Logo')
     expect(logos.length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByText('Explore stays')).toBeInTheDocument()
-    expect(screen.getByText('How it works')).toBeInTheDocument()
+    expect(screen.getAllByText('Explore stays').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('How it works').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders search input with city placeholder and hero copy', () => {

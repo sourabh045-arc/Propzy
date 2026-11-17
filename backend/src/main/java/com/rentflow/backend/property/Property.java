@@ -40,7 +40,7 @@ public class Property {
     @Column(nullable = false)
     private boolean available = true;
 
-    @Column(name = "image_url", length = 1000)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

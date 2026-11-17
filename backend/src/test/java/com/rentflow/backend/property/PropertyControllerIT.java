@@ -124,7 +124,7 @@ class PropertyControllerIT {
                     "city": "Goa",
                     "bedrooms": 3,
                     "bathrooms": 3,
-                    "imageUrl": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750"
+                    "imageUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
                 }
                 """;
 
@@ -133,7 +133,7 @@ class PropertyControllerIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(propertyWithPic))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.imageUrl").value("https://images.unsplash.com/photo-1512917774080-9991f1c4c750"));
+                .andExpect(jsonPath("$.imageUrl").value("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="));
         }
 
         @Test

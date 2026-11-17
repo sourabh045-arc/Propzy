@@ -14,5 +14,5 @@ public record PropertyRequest(
     @Min(0) @Max(100) int bedrooms,
     @Min(0) @Max(100) int bathrooms,
     Boolean available,
-    @Size(max = 1000) String imageUrl
+    String imageUrl
 ) {}

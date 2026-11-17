@@ -942,55 +942,88 @@ h1 span {
   box-shadow: 0 0 0 3px rgba(102, 139, 67, 0.15);
 }
 
-/* Photo Presets & Live Image Preview in Property Modal */
-.photo-presets-row {
+/* User Image Upload Dropzone & Live Image Preview in Property Modal */
+.image-upload-dropzone {
+  border: 2px dashed #b9c4af;
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: center;
+  background: #fbfcf9;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  margin-top: -2px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.photo-presets-label {
+.image-upload-dropzone:hover {
+  border-color: #668b43;
+  background: #f1f6ec;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 139, 67, 0.12);
+}
+
+.upload-icon {
+  color: #4a6c2f;
+}
+
+.image-upload-dropzone b {
+  font-size: 14px;
+  color: #24351d;
+}
+
+.image-upload-dropzone small {
+  font-size: 11.5px;
+  color: #677261;
+}
+
+.image-url-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.image-url-toggle span {
   font-size: 11.5px;
   font-weight: 600;
   color: #5c6655;
+}
+
+.property-card-no-media {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #f3f6ee 0%, #e5ebde 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #6a7762;
+  border: 1px dashed #d1d8cb;
+}
+
+.property-card-no-media-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 2;
 }
 
-.photo-preset-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.photo-chip {
-  background: #f3f5ee;
-  border: 1px solid #d5dad0;
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 11.5px;
+.property-card-no-media span.no-media-label {
+  font-size: 11px;
   font-weight: 600;
-  color: #3b4436;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.15s ease;
-}
-
-.photo-chip:hover {
-  background: #e6ede0;
-  border-color: #668b43;
-  color: #24351c;
-  transform: translateY(-1px);
-}
-
-.photo-chip.active {
-  background: #293b28;
-  color: #fff;
-  border-color: #293b28;
+  letter-spacing: 0.5px;
+  color: #788570;
 }
 
 .image-preview-box {

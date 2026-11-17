@@ -69,7 +69,7 @@ describe('Propzy Frontend Application', () => {
   it('handles empty properties search state gracefully', async () => {
     render(<App />)
     await waitFor(() => {
-      expect(screen.getByText('No properties found')).toBeInTheDocument()
+      expect(screen.getByText('No properties listed yet')).toBeInTheDocument()
     })
   })
 

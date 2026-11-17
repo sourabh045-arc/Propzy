@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
   Search, MapPin, Home, KeyRound, ArrowRight, ShieldCheck, X,
   LoaderCircle, Bed, Bath, PlusCircle, LogOut, User as UserIcon, Trash2,
   MessageSquare, Check, Ban, Clock, Send, ChevronLeft, ChevronRight,
-  Sparkles, RefreshCw, Camera, Image as ImageIcon
+  Sparkles, RefreshCw, UploadCloud, Image as ImageIcon
 } from 'lucide-react'
 import './App.css'
 
@@ -69,32 +69,6 @@ export type Inquiry = {
   createdAt: string
 }
 
-const PHOTO_PRESETS = [
-  { label: 'Modern Apartment', url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80', icon: '🏢' },
-  { label: 'Luxury Villa', url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80', icon: '🏡' },
-  { label: 'Cozy Studio', url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80', icon: '🛋️' },
-  { label: 'Skyline Penthouse', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80', icon: '🏙️' },
-  { label: 'Beachside Stay', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', icon: '🌊' },
-]
-
-function getPropertyImage(p: Property): string {
-  if (p.imageUrl && p.imageUrl.trim().length > 0) return p.imageUrl
-  switch (p.propertyType?.toLowerCase()) {
-    case 'villa':
-      return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'
-    case 'studio':
-      return 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
-    case 'penthouse':
-      return 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'
-    case 'condo':
-      return 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'
-    case 'house':
-      return 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80'
-    default:
-      return 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
-  }
-}
-
 function App() {
   const [query, setQuery] = useState('')
   const [minRent, setMinRent] = useState('')
@@ -110,6 +84,9 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+
+  // File upload input reference
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Pagination state for public properties
   const [currentPage, setCurrentPage] = useState(0)
@@ -260,6 +237,54 @@ function App() {
 
   function changePropertyForm(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     setPropertyForm({ ...propertyForm, [e.target.name]: e.target.value })
+  }
+
+  function handleImageFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setMessage('Please select a valid image file (PNG, JPG, WEBP).')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage('Image file is too large. Please select an image under 5MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      // Resize to max 1200px width/height to keep payload fast and lightweight
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let { width, height } = img
+        const maxDim = 1200
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width)
+            width = maxDim
+          } else {
+            width = Math.round((width * maxDim) / height)
+            height = maxDim
+          }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+        const compressed = canvas.toDataURL('image/jpeg', 0.85)
+        setPropertyForm(prev => ({ ...prev, imageUrl: compressed }))
+        setMessage('Image uploaded successfully!')
+      }
+      img.onerror = () => {
+        setPropertyForm(prev => ({ ...prev, imageUrl: dataUrl }))
+      }
+      img.src = dataUrl
+    }
+    reader.readAsDataURL(file)
   }
 
   async function checkBackend() {
@@ -438,7 +463,7 @@ function App() {
       }
 
       await api.post('/api/v1/properties', payload)
-      setMessage('Property listed successfully with photo!')
+      setMessage('Property listed successfully!')
       setModal(null)
       setPropertyForm({
         title: '',
@@ -451,6 +476,7 @@ function App() {
         bathrooms: '1',
         imageUrl: '',
       })
+      if (fileInputRef.current) fileInputRef.current.value = ''
       fetchProperties(0)
       fetchMyProperties()
     } catch (e: unknown) {
@@ -615,7 +641,7 @@ function App() {
         <div className="hero-copy">
           <span className="eyebrow"><span className="live-dot"/> RENTING, REIMAGINED</span>
           <h1>Find a place<br/>to <span>call home.</span></h1>
-          <p>Discover spaces that fit your life. Verified listings with high-res photos, direct owner connections, transparent renting on Propzy.</p>
+          <p>Discover real rental listings uploaded directly by property owners. Transparent, direct, and zero hassle with Propzy.</p>
           <div className="search-card">
             <label>
               <MapPin size={19}/>
@@ -633,7 +659,7 @@ function App() {
               <Search size={18}/> Search homes
             </button>
           </div>
-          <div className="trust"><ShieldCheck size={17}/> Simple search. Clear choices. Better renting with Propzy.</div>
+          <div className="trust"><ShieldCheck size={17}/> Direct owner listings. Transparent choices. Better renting with Propzy.</div>
         </div>
         <div className="hero-art">
           <img
@@ -649,9 +675,9 @@ function App() {
       </section>
 
       <section className="features" id="how">
-        <div><span>01</span><h3>Find your fit</h3><p>Explore homes with high-resolution photos and narrow down what matters to you.</p></div>
-        <div><span>02</span><h3>Know the details</h3><p>Review property specs, rent amount, and owner contacts transparently.</p></div>
-        <div><span>03</span><h3>Move forward</h3><p>Direct communication with property owners with zero hassle.</p></div>
+        <div><span>01</span><h3>Find your fit</h3><p>Explore homes and apartments posted directly by verified owners.</p></div>
+        <div><span>02</span><h3>Know the details</h3><p>Review real owner-uploaded photos, property specs, rent amount, and location details.</p></div>
+        <div><span>03</span><h3>Move forward</h3><p>Direct communication with property owners with zero intermediary hassle.</p></div>
       </section>
 
       <section className="explore" id="explore">
@@ -711,34 +737,50 @@ function App() {
             <div className="property-grid">
               {displayedProperties.map(p => {
                 const isOwnListing = currentUser && currentUser.userId === p.ownerId
-                const photoSrc = getPropertyImage(p)
 
                 return (
                   <article key={p.id} className="property-card">
-                    {/* Property Picture with Hover Zoom & Frosted Badges */}
-                    <div className="property-card-media">
-                      <img
-                        src={photoSrc}
-                        alt={p.title}
-                        className="property-card-img"
-                        loading="lazy"
-                        onError={(e) => {
-                          // Fallback to solid placeholder if external image fails
-                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
-                        }}
-                      />
-                      <div className="property-card-media-overlay">
-                        <span className="property-badge">{p.propertyType}</span>
-                        <div className="property-status-badges">
-                          {isOwnListing && (
-                            <span className="own-listing-badge">⭐ Your Listing</span>
-                          )}
-                          {!p.available && (
-                            <span className="status-rented-badge">RENTED</span>
-                          )}
+                    {/* Render User Uploaded Picture if provided, otherwise clean geometric placeholder */}
+                    {p.imageUrl ? (
+                      <div className="property-card-media">
+                        <img
+                          src={p.imageUrl}
+                          alt={p.title}
+                          className="property-card-img"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
+                        <div className="property-card-media-overlay">
+                          <span className="property-badge">{p.propertyType}</span>
+                          <div className="property-status-badges">
+                            {isOwnListing && (
+                              <span className="own-listing-badge">⭐ Your Listing</span>
+                            )}
+                            {!p.available && (
+                              <span className="status-rented-badge">RENTED</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="property-card-no-media">
+                        <div className="property-card-no-media-overlay">
+                          <span className="property-badge">{p.propertyType}</span>
+                          <div className="property-status-badges">
+                            {isOwnListing && (
+                              <span className="own-listing-badge">⭐ Your Listing</span>
+                            )}
+                            {!p.available && (
+                              <span className="status-rented-badge">RENTED</span>
+                            )}
+                          </div>
+                        </div>
+                        <Home size={28} className="property-card-no-media-icon" />
+                        <span className="no-media-label">No photo uploaded</span>
+                      </div>
+                    )}
 
                     <div className="property-card-body">
                       <h3>{p.title}</h3>
@@ -822,11 +864,11 @@ function App() {
         ) : (
           <div className="empty-state">
             <Home size={40}/>
-            <h3>{activeTab === 'mine' ? 'No properties listed yet' : 'No properties found'}</h3>
+            <h3>{activeTab === 'mine' ? 'No properties listed yet' : 'No properties listed yet'}</h3>
             <p>
-              {activeTab === 'mine'
-                ? 'Click "List Property" above to create and manage your first rental listing.'
-                : 'Try searching for a different city or clearing rent filters.'}
+              {currentUser && currentUser.role === 'OWNER'
+                ? 'Click "List Property" above to upload photos and list your first rental property.'
+                : 'No rental properties are currently listed. Log in as an Owner to list the first property!'}
             </p>
           </div>
         )}
@@ -1023,14 +1065,14 @@ function App() {
         </div>
       )}
 
-      {/* Owner Create Property Modal (with Picture input, quick presets & live preview) */}
+      {/* Owner Create Property Modal (User Photo Upload) */}
       {modal === 'createProperty' && (
         <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <section className="auth-modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="prop-title">
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Close"><X size={20}/></button>
             <span className="eyebrow">OWNER WORKFLOW</span>
             <h2 id="prop-title">List a New Property</h2>
-            <p>Publish a listing with photos for prospective tenants across Propzy.</p>
+            <p>Upload photos and details of your property to list it on Propzy.</p>
             <form onSubmit={submitProperty}>
               <label>Title
                 <input
@@ -1112,56 +1154,59 @@ function App() {
                 </label>
               </div>
 
-              {/* Property Picture Input & Quick Aesthetic Presets */}
-              <label>
-                <span><Camera size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Property Picture URL (optional)</span>
-                <input
-                  name="imageUrl"
-                  value={propertyForm.imageUrl}
-                  onChange={changePropertyForm}
-                  maxLength={1000}
-                  placeholder="https://images.unsplash.com/... or choose preset below"
-                />
-              </label>
+              {/* User Photo Upload Section */}
+              <label>Property Photo (Uploaded by Owner)</label>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleImageFileUpload}
+              />
 
-              <div className="photo-presets-row">
-                <span className="photo-presets-label"><Sparkles size={13}/> Quick Photo Presets:</span>
-                <div className="photo-preset-chips">
-                  {PHOTO_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      className={`photo-chip ${propertyForm.imageUrl === preset.url ? 'active' : ''}`}
-                      onClick={() => setPropertyForm(prev => ({ ...prev, imageUrl: preset.url }))}
-                    >
-                      <span>{preset.icon}</span> {preset.label}
-                    </button>
-                  ))}
+              {!propertyForm.imageUrl ? (
+                <div
+                  className="image-upload-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                >
+                  <UploadCloud size={30} className="upload-icon" />
+                  <b>Click to choose picture from your device</b>
+                  <small>Upload PNG, JPG, or WEBP photo directly from your computer or phone</small>
                 </div>
-              </div>
-
-              {/* Live Picture Preview Box */}
-              {propertyForm.imageUrl && (
+              ) : (
                 <div className="image-preview-box">
                   <img
                     src={propertyForm.imageUrl}
                     alt="Property Preview"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
-                    }}
                   />
                   <div className="image-preview-meta">
                     <span className="preview-tag"><ImageIcon size={13}/> Photo Attached</span>
                     <button
                       type="button"
                       className="btn-remove-photo"
-                      onClick={() => setPropertyForm(prev => ({ ...prev, imageUrl: '' }))}
+                      onClick={() => {
+                        setPropertyForm(prev => ({ ...prev, imageUrl: '' }))
+                        if (fileInputRef.current) fileInputRef.current.value = ''
+                      }}
                     >
-                      <X size={13}/> Remove
+                      <X size={13}/> Remove Photo
                     </button>
                   </div>
                 </div>
               )}
+
+              <div className="image-url-toggle">
+                <span>Or enter direct image URL (optional):</span>
+                <input
+                  name="imageUrl"
+                  value={propertyForm.imageUrl.startsWith('data:') ? '' : propertyForm.imageUrl}
+                  onChange={changePropertyForm}
+                  placeholder="https://..."
+                />
+              </div>
 
               <label>Description (optional)
                 <textarea
@@ -1174,7 +1219,7 @@ function App() {
               </label>
               {message && <p className="form-message" role="alert">{message}</p>}
               <button className="btn-dark submit-btn" type="submit" disabled={loading}>
-                {loading ? 'Submitting...' : 'Publish Listing with Photo'} <ArrowRight size={17}/>
+                {loading ? 'Submitting...' : 'Publish Listing'} <ArrowRight size={17}/>
               </button>
             </form>
           </section>

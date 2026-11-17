@@ -200,6 +200,10 @@ public class PropertyService {
         property.setBedrooms(request.bedrooms());
         property.setBathrooms(request.bathrooms());
 
+        if (request.imageUrl() != null) {
+            property.setImageUrl(request.imageUrl().trim().isEmpty() ? null : request.imageUrl().trim());
+        }
+
         if (request.available() != null) {
             property.setAvailable(request.available());
         } else if (creating) {

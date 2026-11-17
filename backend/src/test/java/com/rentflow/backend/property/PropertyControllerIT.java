@@ -110,6 +110,33 @@ class PropertyControllerIT {
         }
 
         @Test
+        @DisplayName("owner can create a property with picture image URL")
+        void ownerCanCreateWithPicture() throws Exception {
+            String token = registerAndLogin("Owner Pic", "ownerpic@test.com", "OWNER");
+
+            String propertyWithPic = """
+                {
+                    "title": "Villa with Ocean View",
+                    "description": "Stunning private villa with infinite sea vistas",
+                    "rentAmount": 3500.00,
+                    "propertyType": "Villa",
+                    "address": "400 Ocean Drive",
+                    "city": "Goa",
+                    "bedrooms": 3,
+                    "bathrooms": 3,
+                    "imageUrl": "https://images.unsplash.com/photo-1512917774080-9991f1c4c750"
+                }
+                """;
+
+            mvc.perform(post("/api/v1/properties")
+                    .header("Authorization", "Bearer " + token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(propertyWithPic))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.imageUrl").value("https://images.unsplash.com/photo-1512917774080-9991f1c4c750"));
+        }
+
+        @Test
         @DisplayName("tenant cannot create a property")
         void tenantCannotCreate() throws Exception {
             String token = registerAndLogin("Tenant One", "tenant@test.com", "TENANT");

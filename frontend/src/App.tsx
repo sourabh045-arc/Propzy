@@ -4,7 +4,7 @@ import {
   Search, MapPin, Home, KeyRound, ArrowRight, ShieldCheck, X,
   LoaderCircle, Bed, Bath, PlusCircle, LogOut, User as UserIcon, Trash2,
   MessageSquare, Check, Ban, Clock, Send, ChevronLeft, ChevronRight,
-  Sparkles, RefreshCw
+  Sparkles, RefreshCw, Camera, Image as ImageIcon
 } from 'lucide-react'
 import './App.css'
 
@@ -41,6 +41,7 @@ export type Property = {
   bedrooms: number
   bathrooms: number
   available: boolean
+  imageUrl?: string
   ownerId: number
   ownerName: string
   createdAt?: string
@@ -66,6 +67,32 @@ export type Inquiry = {
   message: string
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
   createdAt: string
+}
+
+const PHOTO_PRESETS = [
+  { label: 'Modern Apartment', url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80', icon: '🏢' },
+  { label: 'Luxury Villa', url: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80', icon: '🏡' },
+  { label: 'Cozy Studio', url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80', icon: '🛋️' },
+  { label: 'Skyline Penthouse', url: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80', icon: '🏙️' },
+  { label: 'Beachside Stay', url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80', icon: '🌊' },
+]
+
+function getPropertyImage(p: Property): string {
+  if (p.imageUrl && p.imageUrl.trim().length > 0) return p.imageUrl
+  switch (p.propertyType?.toLowerCase()) {
+    case 'villa':
+      return 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80'
+    case 'studio':
+      return 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80'
+    case 'penthouse':
+      return 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80'
+    case 'condo':
+      return 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80'
+    case 'house':
+      return 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80'
+    default:
+      return 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
+  }
 }
 
 function App() {
@@ -121,6 +148,7 @@ function App() {
     city: '',
     bedrooms: '1',
     bathrooms: '1',
+    imageUrl: '',
   })
 
   async function fetchProperties(targetPage = 0, cityQuery?: string, min?: string, max?: string) {
@@ -405,11 +433,12 @@ function App() {
         city: propertyForm.city.trim(),
         bedrooms: parseInt(propertyForm.bedrooms, 10),
         bathrooms: parseInt(propertyForm.bathrooms, 10),
+        imageUrl: propertyForm.imageUrl.trim() || undefined,
         available: true,
       }
 
       await api.post('/api/v1/properties', payload)
-      setMessage('Property listed successfully!')
+      setMessage('Property listed successfully with photo!')
       setModal(null)
       setPropertyForm({
         title: '',
@@ -420,6 +449,7 @@ function App() {
         city: '',
         bedrooms: '1',
         bathrooms: '1',
+        imageUrl: '',
       })
       fetchProperties(0)
       fetchMyProperties()
@@ -585,7 +615,7 @@ function App() {
         <div className="hero-copy">
           <span className="eyebrow"><span className="live-dot"/> RENTING, REIMAGINED</span>
           <h1>Find a place<br/>to <span>call home.</span></h1>
-          <p>Discover spaces that fit your life. Verified listings, direct owner connections, transparent renting on Propzy.</p>
+          <p>Discover spaces that fit your life. Verified listings with high-res photos, direct owner connections, transparent renting on Propzy.</p>
           <div className="search-card">
             <label>
               <MapPin size={19}/>
@@ -619,7 +649,7 @@ function App() {
       </section>
 
       <section className="features" id="how">
-        <div><span>01</span><h3>Find your fit</h3><p>Explore homes and narrow down what matters to you.</p></div>
+        <div><span>01</span><h3>Find your fit</h3><p>Explore homes with high-resolution photos and narrow down what matters to you.</p></div>
         <div><span>02</span><h3>Know the details</h3><p>Review property specs, rent amount, and owner contacts transparently.</p></div>
         <div><span>03</span><h3>Move forward</h3><p>Direct communication with property owners with zero hassle.</p></div>
       </section>
@@ -681,59 +711,79 @@ function App() {
             <div className="property-grid">
               {displayedProperties.map(p => {
                 const isOwnListing = currentUser && currentUser.userId === p.ownerId
+                const photoSrc = getPropertyImage(p)
+
                 return (
                   <article key={p.id} className="property-card">
-                    <div className="property-card-top">
-                      <span className="property-badge">{p.propertyType}</span>
-                      {isOwnListing && (
-                        <span className="own-listing-badge">⭐ Your Listing</span>
-                      )}
-                      {!p.available && (
-                        <span className="status-rented-badge">RENTED</span>
-                      )}
+                    {/* Property Picture with Hover Zoom & Frosted Badges */}
+                    <div className="property-card-media">
+                      <img
+                        src={photoSrc}
+                        alt={p.title}
+                        className="property-card-img"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Fallback to solid placeholder if external image fails
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
+                        }}
+                      />
+                      <div className="property-card-media-overlay">
+                        <span className="property-badge">{p.propertyType}</span>
+                        <div className="property-status-badges">
+                          {isOwnListing && (
+                            <span className="own-listing-badge">⭐ Your Listing</span>
+                          )}
+                          {!p.available && (
+                            <span className="status-rented-badge">RENTED</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <h3>{p.title}</h3>
-                    <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
-                    {p.description && <p className="property-desc">{p.description}</p>}
-                    <div className="property-specs">
-                      <span><Bed size={15}/> {p.bedrooms} Beds</span>
-                      <span><Bath size={15}/> {p.bathrooms} Baths</span>
-                    </div>
-                    <div className="property-footer">
-                      <b className="property-price">
-                        ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                        <small> / month</small>
-                      </b>
-                      <div className="property-card-actions">
-                        {isOwnListing ? (
-                          <div className="owner-actions">
-                            <button
-                              className={`btn-toggle-avail ${p.available ? 'is-avail' : 'is-rented'}`}
-                              onClick={() => toggleAvailability(p.id)}
-                              title={p.available ? 'Click to mark as rented' : 'Click to mark as available'}
-                            >
-                              {p.available ? 'Available' : 'Marked Rented'}
-                            </button>
-                            <button
-                              className="btn-danger-icon"
-                              onClick={() => deleteProperty(p.id)}
-                              title="Delete your property listing"
-                            >
-                              <Trash2 size={16}/>
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <button
-                              className="btn-outline btn-xs"
-                              onClick={() => openInquiryModal(p)}
-                              title="Contact owner about this listing"
-                            >
-                              <MessageSquare size={13}/> Inquire
-                            </button>
-                            <span className="owner-tag">by {p.ownerName}</span>
-                          </>
-                        )}
+
+                    <div className="property-card-body">
+                      <h3>{p.title}</h3>
+                      <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
+                      {p.description && <p className="property-desc">{p.description}</p>}
+                      <div className="property-specs">
+                        <span><Bed size={15}/> {p.bedrooms} Beds</span>
+                        <span><Bath size={15}/> {p.bathrooms} Baths</span>
+                      </div>
+                      <div className="property-footer">
+                        <b className="property-price">
+                          ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                          <small> / month</small>
+                        </b>
+                        <div className="property-card-actions">
+                          {isOwnListing ? (
+                            <div className="owner-actions">
+                              <button
+                                className={`btn-toggle-avail ${p.available ? 'is-avail' : 'is-rented'}`}
+                                onClick={() => toggleAvailability(p.id)}
+                                title={p.available ? 'Click to mark as rented' : 'Click to mark as available'}
+                              >
+                                {p.available ? 'Available' : 'Marked Rented'}
+                              </button>
+                              <button
+                                className="btn-danger-icon"
+                                onClick={() => deleteProperty(p.id)}
+                                title="Delete your property listing"
+                              >
+                                <Trash2 size={16}/>
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                className="btn-outline btn-xs"
+                                onClick={() => openInquiryModal(p)}
+                                title="Contact owner about this listing"
+                              >
+                                <MessageSquare size={13}/> Inquire
+                              </button>
+                              <span className="owner-tag">by {p.ownerName}</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -973,14 +1023,14 @@ function App() {
         </div>
       )}
 
-      {/* Owner Create Property Modal */}
+      {/* Owner Create Property Modal (with Picture input, quick presets & live preview) */}
       {modal === 'createProperty' && (
         <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null) }}>
           <section className="auth-modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="prop-title">
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Close"><X size={20}/></button>
             <span className="eyebrow">OWNER WORKFLOW</span>
             <h2 id="prop-title">List a New Property</h2>
-            <p>Publish a listing for prospective tenants across the platform.</p>
+            <p>Publish a listing with photos for prospective tenants across Propzy.</p>
             <form onSubmit={submitProperty}>
               <label>Title
                 <input
@@ -1061,6 +1111,58 @@ function App() {
                   />
                 </label>
               </div>
+
+              {/* Property Picture Input & Quick Aesthetic Presets */}
+              <label>
+                <span><Camera size={14} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Property Picture URL (optional)</span>
+                <input
+                  name="imageUrl"
+                  value={propertyForm.imageUrl}
+                  onChange={changePropertyForm}
+                  maxLength={1000}
+                  placeholder="https://images.unsplash.com/... or choose preset below"
+                />
+              </label>
+
+              <div className="photo-presets-row">
+                <span className="photo-presets-label"><Sparkles size={13}/> Quick Photo Presets:</span>
+                <div className="photo-preset-chips">
+                  {PHOTO_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className={`photo-chip ${propertyForm.imageUrl === preset.url ? 'active' : ''}`}
+                      onClick={() => setPropertyForm(prev => ({ ...prev, imageUrl: preset.url }))}
+                    >
+                      <span>{preset.icon}</span> {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Picture Preview Box */}
+              {propertyForm.imageUrl && (
+                <div className="image-preview-box">
+                  <img
+                    src={propertyForm.imageUrl}
+                    alt="Property Preview"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80'
+                    }}
+                  />
+                  <div className="image-preview-meta">
+                    <span className="preview-tag"><ImageIcon size={13}/> Photo Attached</span>
+                    <button
+                      type="button"
+                      className="btn-remove-photo"
+                      onClick={() => setPropertyForm(prev => ({ ...prev, imageUrl: '' }))}
+                    >
+                      <X size={13}/> Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <label>Description (optional)
                 <textarea
                   name="description"
@@ -1072,7 +1174,7 @@ function App() {
               </label>
               {message && <p className="form-message" role="alert">{message}</p>}
               <button className="btn-dark submit-btn" type="submit" disabled={loading}>
-                {loading ? 'Submitting...' : 'Publish Listing'} <ArrowRight size={17}/>
+                {loading ? 'Submitting...' : 'Publish Listing with Photo'} <ArrowRight size={17}/>
               </button>
             </form>
           </section>

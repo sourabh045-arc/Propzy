@@ -62,21 +62,21 @@ public class DevDataInitializer implements CommandLineRunner {
 
         // Seed 15 sample properties across cities
         List<Property> properties = List.of(
-            createProperty("Sea Breeze Penthouse", "Ultra-luxury penthouse with sweeping views of the Arabian Sea and private terrace.", new BigDecimal("85000.00"), "Penthouse", "Marine Drive", "Mumbai", 3, 3, owner),
-            createProperty("Bandra Modern Studio", "Chic, fully-furnished minimalist studio in the heart of trendy Bandra West.", new BigDecimal("38000.00"), "Studio", "Pali Hill, Bandra West", "Mumbai", 1, 1, owner),
-            createProperty("Powai Lakeview 2BHK", "Spacious 2BHK facing Powai lake with modular kitchen and clubhouse access.", new BigDecimal("52000.00"), "Apartment", "Hiranandani Gardens, Powai", "Mumbai", 2, 2, owner),
-            createProperty("Juhu Sun-Drenched 3BHK", "Beachside 3BHK with floor-to-ceiling windows, wooden flooring and concierge.", new BigDecimal("95000.00"), "Apartment", "Gulmohar Road, Juhu", "Mumbai", 3, 3, owner),
-            createProperty("Indiranagar Garden Villa", "Independent duplex villa with private lawn, solar heating and EV charging point.", new BigDecimal("68000.00"), "Villa", "100ft Road, Indiranagar", "Bangalore", 4, 3, owner),
-            createProperty("Koramangala Techie Haven", "Smart home enabled apartment with high-speed fiber internet and dedicated workspace.", new BigDecimal("42000.00"), "Apartment", "4th Block, Koramangala", "Bangalore", 2, 2, owner),
-            createProperty("Whitefield Luxury High-Rise", "Premium 3BHK near major tech parks with infinity pool and badminton court.", new BigDecimal("48000.00"), "Apartment", "ITPL Main Road, Whitefield", "Bangalore", 3, 3, owner),
-            createProperty("HSR Layout Cozy 1BHK", "Well-ventilated 1BHK close to sector 1 parks, cafes, and supermarkets.", new BigDecimal("26000.00"), "Apartment", "Sector 1, HSR Layout", "Bangalore", 1, 1, owner),
-            createProperty("Greater Kailash Colonial Villa", "Heritage-style villa with courtyard, antique wooden details and private garage.", new BigDecimal("90000.00"), "Villa", "M-Block, Greater Kailash II", "Delhi", 4, 4, owner),
-            createProperty("Hauz Khas Boho Apartment", "Artistic 2BHK with balcony looking out onto greenery near the historic fort.", new BigDecimal("46000.00"), "Apartment", "Aurobindo Marg, Hauz Khas", "Delhi", 2, 2, owner),
-            createProperty("Gurgaon Golf Course 3BHK", "Executive high-rise condominium overlooking the DLF Golf Course with luxury fittings.", new BigDecimal("75000.00"), "Condo", "Golf Course Road, Sector 54", "Delhi", 3, 3, owner),
-            createProperty("Connaught Place Classic Flat", "Historic colonial architecture with high ceilings, spacious hall and balcony.", new BigDecimal("60000.00"), "Apartment", "Barakhamba Road, CP", "Delhi", 2, 2, owner),
-            createProperty("Cyber City Executive Studio", "Conveniently situated studio apartment walking distance from Rapid Metro.", new BigDecimal("28000.00"), "Studio", "DLF Cyber City, Sector 24", "Delhi", 1, 1, owner),
-            createProperty("Vasant Vihar Embassy Residence", "Secure, expansive residence in prime embassy area with private security post.", new BigDecimal("120000.00"), "Villa", "Poorvi Marg, Vasant Vihar", "Delhi", 5, 5, owner),
-            createProperty("Andheri East Metro Connect", "Modern 1BHK directly connected to Western Express Highway and Metro line 1.", new BigDecimal("32000.00"), "Apartment", "JB Nagar, Andheri East", "Mumbai", 1, 1, owner)
+            createProperty("Sea Breeze Penthouse", "Ultra-luxury penthouse with sweeping views of the Arabian Sea and private terrace.", new BigDecimal("85000.00"), "Penthouse", "Marine Drive", "Mumbai", 3, 3, "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Bandra Modern Studio", "Chic, fully-furnished minimalist studio in the heart of trendy Bandra West.", new BigDecimal("38000.00"), "Studio", "Pali Hill, Bandra West", "Mumbai", 1, 1, "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Powai Lakeview 2BHK", "Spacious 2BHK facing Powai lake with modular kitchen and clubhouse access.", new BigDecimal("52000.00"), "Apartment", "Hiranandani Gardens, Powai", "Mumbai", 2, 2, "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Juhu Sun-Drenched 3BHK", "Beachside 3BHK with floor-to-ceiling windows, wooden flooring and concierge.", new BigDecimal("95000.00"), "Apartment", "Gulmohar Road, Juhu", "Mumbai", 3, 3, "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Indiranagar Garden Villa", "Independent duplex villa with private lawn, solar heating and EV charging point.", new BigDecimal("68000.00"), "Villa", "100ft Road, Indiranagar", "Bangalore", 4, 3, "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Koramangala Techie Haven", "Smart home enabled apartment with high-speed fiber internet and dedicated workspace.", new BigDecimal("42000.00"), "Apartment", "4th Block, Koramangala", "Bangalore", 2, 2, "https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Whitefield Luxury High-Rise", "Premium 3BHK near major tech parks with infinity pool and badminton court.", new BigDecimal("48000.00"), "Apartment", "ITPL Main Road, Whitefield", "Bangalore", 3, 3, "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("HSR Layout Cozy 1BHK", "Well-ventilated 1BHK close to sector 1 parks, cafes, and supermarkets.", new BigDecimal("26000.00"), "Apartment", "Sector 1, HSR Layout", "Bangalore", 1, 1, "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Greater Kailash Colonial Villa", "Heritage-style villa with courtyard, antique wooden details and private garage.", new BigDecimal("90000.00"), "Villa", "M-Block, Greater Kailash II", "Delhi", 4, 4, "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Hauz Khas Boho Apartment", "Artistic 2BHK with balcony looking out onto greenery near the historic fort.", new BigDecimal("46000.00"), "Apartment", "Aurobindo Marg, Hauz Khas", "Delhi", 2, 2, "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Gurgaon Golf Course 3BHK", "Executive high-rise condominium overlooking the DLF Golf Course with luxury fittings.", new BigDecimal("75000.00"), "Condo", "Golf Course Road, Sector 54", "Delhi", 3, 3, "https://images.unsplash.com/photo-1512915922686-57c11dde9b6b?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Connaught Place Classic Flat", "Historic colonial architecture with high ceilings, spacious hall and balcony.", new BigDecimal("60000.00"), "Apartment", "Barakhamba Road, CP", "Delhi", 2, 2, "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Cyber City Executive Studio", "Conveniently situated studio apartment walking distance from Rapid Metro.", new BigDecimal("28000.00"), "Studio", "DLF Cyber City, Sector 24", "Delhi", 1, 1, "https://images.unsplash.com/photo-1536376072261-38c75010e6c9?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Vasant Vihar Embassy Residence", "Secure, expansive residence in prime embassy area with private security post.", new BigDecimal("120000.00"), "Villa", "Poorvi Marg, Vasant Vihar", "Delhi", 5, 5, "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800&q=80", owner),
+            createProperty("Andheri East Metro Connect", "Modern 1BHK directly connected to Western Express Highway and Metro line 1.", new BigDecimal("32000.00"), "Apartment", "JB Nagar, Andheri East", "Mumbai", 1, 1, "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80", owner)
         );
 
         propertyRepository.saveAll(properties);
@@ -85,7 +85,7 @@ public class DevDataInitializer implements CommandLineRunner {
 
     private Property createProperty(String title, String description, BigDecimal rentAmount,
                                     String propertyType, String address, String city,
-                                    int bedrooms, int bathrooms, User owner) {
+                                    int bedrooms, int bathrooms, String imageUrl, User owner) {
         Property property = new Property();
         property.setTitle(title);
         property.setDescription(description);
@@ -95,6 +95,7 @@ public class DevDataInitializer implements CommandLineRunner {
         property.setCity(city);
         property.setBedrooms(bedrooms);
         property.setBathrooms(bathrooms);
+        property.setImageUrl(imageUrl);
         property.setAvailable(true);
         property.setOwner(owner);
         return property;

@@ -13,5 +13,6 @@ public record PropertyRequest(
     @NotBlank @Size(max = 100) String city,
     @Min(0) @Max(100) int bedrooms,
     @Min(0) @Max(100) int bathrooms,
-    Boolean available
+    Boolean available,
+    @Size(max = 1000) String imageUrl
 ) {}

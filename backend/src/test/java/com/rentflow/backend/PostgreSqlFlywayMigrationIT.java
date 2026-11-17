@@ -81,8 +81,8 @@ class PostgreSqlFlywayMigrationIT {
         }
         assertNotNull(flyway, "Flyway bean should be present when PostgreSQL Testcontainers is active");
         var applied = flyway.info().applied();
-        assertTrue(applied.length >= 6, "All migrations up to V6 must be applied");
-        assertEquals("6", applied[applied.length - 1].getVersion().getVersion());
+        assertTrue(applied.length >= 7, "All migrations up to V7 must be applied");
+        assertEquals("7", applied[applied.length - 1].getVersion().getVersion());
     }
 
     @Test

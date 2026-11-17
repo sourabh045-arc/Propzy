@@ -14,6 +14,7 @@ public record PropertyResponse(
     int bedrooms,
     int bathrooms,
     boolean available,
+    String imageUrl,
     Long ownerId,
     String ownerName,
     Instant createdAt,
@@ -24,7 +25,7 @@ public record PropertyResponse(
             p.getId(), p.getTitle(), p.getDescription(),
             p.getRentAmount(), p.getPropertyType(), p.getAddress(),
             p.getCity(), p.getBedrooms(), p.getBathrooms(),
-            p.isAvailable(), p.getOwner().getId(),
+            p.isAvailable(), p.getImageUrl(), p.getOwner().getId(),
             p.getOwner().getFullName(), p.getCreatedAt(), p.getUpdatedAt()
         );
     }

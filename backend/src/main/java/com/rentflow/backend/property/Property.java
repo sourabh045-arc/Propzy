@@ -40,6 +40,9 @@ public class Property {
     @Column(nullable = false)
     private boolean available = true;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
@@ -75,6 +78,7 @@ public class Property {
     public int getBedrooms() { return bedrooms; }
     public int getBathrooms() { return bathrooms; }
     public boolean isAvailable() { return available; }
+    public String getImageUrl() { return imageUrl; }
     public User getOwner() { return owner; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
@@ -88,5 +92,6 @@ public class Property {
     public void setBedrooms(int bedrooms) { this.bedrooms = bedrooms; }
     public void setBathrooms(int bathrooms) { this.bathrooms = bathrooms; }
     public void setAvailable(boolean available) { this.available = available; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public void setOwner(User owner) { this.owner = owner; }
 }

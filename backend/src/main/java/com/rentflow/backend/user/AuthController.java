@@ -30,6 +30,16 @@ public class AuthController {
         return userService.register(request);
     }
 
+    @PostMapping("/verify-email")
+    public LoginResponse verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        return userService.verifyEmail(request);
+    }
+
+    @PostMapping("/resend-verification")
+    public Map<String, Object> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        return userService.resendVerification(request);
+    }
+
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);

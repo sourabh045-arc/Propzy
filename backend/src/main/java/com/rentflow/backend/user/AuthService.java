@@ -38,6 +38,11 @@ public class AuthService {
                 HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
+        if (!user.isEmailVerified()) {
+            throw new ResponseStatusException(
+                HttpStatus.FORBIDDEN, "Please verify your email before logging in.");
+        }
+
         return new LoginResponse(
             jwtService.generateToken(user),
             "Bearer",

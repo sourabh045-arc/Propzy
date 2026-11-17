@@ -49,7 +49,7 @@ describe('Propzy Frontend Application', () => {
     expect(screen.getByText(/RENTING, REIMAGINED/i)).toBeInTheDocument()
   })
 
-  it('opens login and register modals properly', () => {
+  it('opens login and register modals properly with interactive role cards', () => {
     render(<App />)
     const loginBtns = screen.getAllByRole('button', { name: 'Log in' })
     fireEvent.click(loginBtns[0])
@@ -60,7 +60,10 @@ describe('Propzy Frontend Application', () => {
     const switchBtn = screen.getByRole('button', { name: 'Create account' })
     fireEvent.click(switchBtn)
     expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument()
-    expect(screen.getByText('Account type')).toBeInTheDocument()
+    expect(screen.getByText('I want to join as')).toBeInTheDocument()
+    expect(screen.getByText('Tenant')).toBeInTheDocument()
+    expect(screen.getByText('Property Owner')).toBeInTheDocument()
+    expect(screen.getByText('Confirm Password')).toBeInTheDocument()
   })
 
   it('handles empty properties search state gracefully', async () => {

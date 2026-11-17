@@ -28,6 +28,15 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+    @Column(name = "verification_code", length = 10)
+    private String verificationCode;
+
+    @Column(name = "verification_expiry")
+    private Instant verificationExpiry;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -55,6 +64,9 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public String getPhone() { return phone; }
     public Role getRole() { return role; }
+    public boolean isEmailVerified() { return emailVerified; }
+    public String getVerificationCode() { return verificationCode; }
+    public Instant getVerificationExpiry() { return verificationExpiry; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -63,4 +75,7 @@ public class User {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setPhone(String phone) { this.phone = phone; }
     public void setRole(Role role) { this.role = role; }
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
+    public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
+    public void setVerificationExpiry(Instant verificationExpiry) { this.verificationExpiry = verificationExpiry; }
 }

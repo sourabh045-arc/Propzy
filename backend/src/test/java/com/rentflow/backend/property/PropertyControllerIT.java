@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -47,6 +48,11 @@ class PropertyControllerIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(regBody))
             .andExpect(status().isCreated());
+
+        userRepository.findByEmail(email).ifPresent(u -> {
+            u.setEmailVerified(true);
+            userRepository.save(u);
+        });
 
         String loginBody = String.format("""
             {
@@ -413,6 +419,59 @@ class PropertyControllerIT {
             mvc.perform(delete("/api/v1/properties/" + id)
                     .header("Authorization", "Bearer " + otherToken))
                 .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("owner can list their already listed properties via /mine")
+        void ownerCanListTheirOwnProperties() throws Exception {
+            String ownerToken = registerAndLogin("List Owner", "listowner@test.com", "OWNER");
+            String otherToken = registerAndLogin("Other Owner", "otherowner@test.com", "OWNER");
+
+            mvc.perform(post("/api/v1/properties")
+                    .header("Authorization", "Bearer " + ownerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(VALID_PROPERTY))
+                .andExpect(status().isCreated());
+
+            mvc.perform(get("/api/v1/properties/mine")
+                    .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].title").value("Cozy Apartment"));
+
+            // Other owner should see 0 listings for themselves
+            mvc.perform(get("/api/v1/properties/mine")
+                    .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+        }
+
+        @Test
+        @DisplayName("owner can toggle availability of their listed property")
+        void ownerCanToggleAvailability() throws Exception {
+            String ownerToken = registerAndLogin("Toggle Owner", "toggleowner@test.com", "OWNER");
+
+            MvcResult createResult = mvc.perform(post("/api/v1/properties")
+                    .header("Authorization", "Bearer " + ownerToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(VALID_PROPERTY))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+            long id = objectMapper.readTree(
+                createResult.getResponse().getContentAsString()).get("id").asLong();
+
+            // Toggle to unavailable
+            mvc.perform(patch("/api/v1/properties/" + id + "/toggle-availability")
+                    .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available").value(false));
+
+            // Toggle back to available
+            mvc.perform(patch("/api/v1/properties/" + id + "/toggle-availability")
+                    .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.available").value(true));
         }
     }
 }

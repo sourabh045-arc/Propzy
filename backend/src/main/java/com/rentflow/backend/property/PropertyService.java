@@ -144,6 +144,28 @@ public class PropertyService {
         return PropertyResponse.from(findProperty(id));
     }
 
+    @Transactional(readOnly = true)
+    public Page<PropertyResponse> listMyProperties(String email, int page, int size) {
+        User owner = requireOwner(email);
+        if (page < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page cannot be negative");
+        }
+        if (size < 1 || size > 100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "size must be between 1 and 100");
+        }
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return properties.findByOwnerId(owner.getId(), pageable).map(PropertyResponse::from);
+    }
+
+    @Transactional
+    public PropertyResponse toggleAvailability(String email, Long id) {
+        User owner = requireOwner(email);
+        Property property = findProperty(id);
+        requireOwnership(property, owner);
+        property.setAvailable(!property.isAvailable());
+        return PropertyResponse.from(properties.save(property));
+    }
+
     @Transactional
     public PropertyResponse update(
             String email, Long id, PropertyRequest request) {

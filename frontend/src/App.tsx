@@ -3,7 +3,8 @@ import axios from 'axios'
 import {
   Search, MapPin, Home, KeyRound, ArrowRight, ShieldCheck, X,
   LoaderCircle, Bed, Bath, PlusCircle, LogOut, User as UserIcon, Trash2,
-  MessageSquare, Check, Ban, Clock, Send, ChevronLeft, ChevronRight
+  MessageSquare, Check, Ban, Clock, Send, ChevronLeft, ChevronRight,
+  Sparkles, RefreshCw
 } from 'lucide-react'
 import './App.css'
 
@@ -51,6 +52,7 @@ export type CurrentUser = {
   fullName: string
   email: string
   role: 'TENANT' | 'OWNER' | 'ADMIN'
+  emailVerified?: boolean
 }
 
 export type Inquiry = {
@@ -72,12 +74,17 @@ function App() {
   const [maxRent, setMaxRent] = useState('')
   const [status, setStatus] = useState('')
   const [properties, setProperties] = useState<Property[]>([])
-  const [modal, setModal] = useState<'login' | 'register' | 'createProperty' | 'inquiry' | 'viewInquiries' | null>(null)
+  const [myProperties, setMyProperties] = useState<Property[]>([])
+  const [activeTab, setActiveTab] = useState<'all' | 'mine'>('all')
+
+  const [modal, setModal] = useState<
+    'login' | 'register' | 'createProperty' | 'inquiry' | 'viewInquiries' | 'verifyEmail' | null
+  >(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
 
-  // ISSUE 6: Pagination state
+  // Pagination state for public properties
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [totalElements, setTotalElements] = useState(0)
@@ -88,8 +95,21 @@ function App() {
   const [activePropertyForInquiry, setActivePropertyForInquiry] = useState<Property | null>(null)
   const [inquiryText, setInquiryText] = useState('')
 
+  // Authentication & Verification Form state
   const [authForm, setAuthForm] = useState({
-    fullName: '', email: '', password: '', phone: '', role: 'TENANT',
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    role: 'TENANT' as 'TENANT' | 'OWNER',
+  })
+
+  const [verificationState, setVerificationState] = useState({
+    email: '',
+    code: '',
+    demoCode: '',
+    successMsg: '',
   })
 
   const [propertyForm, setPropertyForm] = useState({
@@ -155,6 +175,19 @@ function App() {
     }
   }
 
+  async function fetchMyProperties() {
+    if (!currentUser || currentUser.role !== 'OWNER') return
+    try {
+      const r = await api.get('/api/v1/properties/mine', {
+        params: { page: 0, size: 50 },
+      })
+      const list = Array.isArray(r.data) ? r.data : r.data.content || []
+      setMyProperties(list)
+    } catch {
+      // ignore if unauthenticated
+    }
+  }
+
   // Restore session on component mount & fetch initial properties safely
   useEffect(() => {
     const token = localStorage.getItem('propzy_token') || localStorage.getItem('rentflow_token')
@@ -163,6 +196,13 @@ function App() {
       api.get('/api/v1/auth/me')
         .then(res => {
           setCurrentUser(res.data)
+          if (res.data.role === 'OWNER') {
+            api.get('/api/v1/properties/mine', { params: { page: 0, size: 50 } })
+              .then(mineRes => {
+                setMyProperties(Array.isArray(mineRes.data) ? mineRes.data : mineRes.data.content || [])
+              })
+              .catch(() => {})
+          }
         })
         .catch(() => {
           localStorage.removeItem('propzy_token')
@@ -180,6 +220,8 @@ function App() {
     localStorage.removeItem('rentflow_token')
     delete api.defaults.headers.common.Authorization
     setCurrentUser(null)
+    setMyProperties([])
+    setActiveTab('all')
     setInquiries([])
     setMessage('Logged out successfully.')
   }
@@ -208,44 +250,142 @@ function App() {
     e.preventDefault()
     setLoading(true)
     setMessage('')
-    try {
-      const endpoint = modal === 'register'
-        ? '/api/v1/auth/register'
-        : '/api/v1/auth/login'
-      const payload = modal === 'register'
-        ? {
-            fullName: authForm.fullName,
-            email: authForm.email,
-            password: authForm.password,
-            phone: authForm.phone || null,
-            role: authForm.role,
-          }
-        : { email: authForm.email, password: authForm.password }
 
-      const r = await api.post(endpoint, payload)
+    if (modal === 'register') {
+      if (authForm.password !== authForm.confirmPassword) {
+        setMessage('Passwords do not match. Please re-enter.')
+        setLoading(false)
+        return
+      }
+      if (authForm.password.length < 8) {
+        setMessage('Password must be at least 8 characters long.')
+        setLoading(false)
+        return
+      }
+    }
+
+    try {
+      if (modal === 'register') {
+        const payload = {
+          fullName: authForm.fullName.trim(),
+          email: authForm.email.trim().toLowerCase(),
+          password: authForm.password,
+          phone: authForm.phone ? authForm.phone.trim() : null,
+          role: authForm.role,
+        }
+
+        const r = await api.post('/api/v1/auth/register', payload)
+        const data = r.data
+
+        // Transition to Email Verification Modal
+        setVerificationState({
+          email: authForm.email.trim().toLowerCase(),
+          code: data.verificationCode || '',
+          demoCode: data.verificationCode || '',
+          successMsg: data.message || 'Verification code sent to your email!',
+        })
+        setModal('verifyEmail')
+        setMessage('')
+      } else {
+        // Login
+        const payload = {
+          email: authForm.email.trim().toLowerCase(),
+          password: authForm.password,
+        }
+        const r = await api.post('/api/v1/auth/login', payload)
+        const data = r.data
+        const token = data.token || data.accessToken || data.access_token
+
+        if (token) {
+          localStorage.setItem('propzy_token', token)
+          api.defaults.headers.common.Authorization = `Bearer ${token}`
+          const meRes = await api.get('/api/v1/auth/me')
+          setCurrentUser(meRes.data)
+          if (meRes.data.role === 'OWNER') {
+            fetchMyProperties()
+          }
+        }
+
+        setMessage('Login successful!')
+        setModal(null)
+        setStatus(`Welcome, ${data.fullName || 'back'}!`)
+        fetchProperties(0)
+      }
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number; data?: { message?: string; fieldErrors?: Record<string, string> } } }
+      const errData = err.response?.data
+      if (err.response?.status === 403 && errData?.message?.toLowerCase().includes('verify')) {
+        // Account unverified - auto prompt verification modal
+        setVerificationState({
+          email: authForm.email.trim().toLowerCase(),
+          code: '',
+          demoCode: '',
+          successMsg: 'Please verify your email to activate your account.',
+        })
+        setModal('verifyEmail')
+        setMessage(errData.message)
+      } else if (errData?.fieldErrors) {
+        const firstErr = Object.values(errData.fieldErrors)[0]
+        setMessage(firstErr || 'Validation failed')
+      } else {
+        setMessage(errData?.message || 'Request failed. Please try again.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function submitVerifyEmail(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setMessage('')
+    try {
+      const r = await api.post('/api/v1/auth/verify-email', {
+        email: verificationState.email.trim().toLowerCase(),
+        code: verificationState.code.trim(),
+      })
       const data = r.data
-      const token = data.token || data.accessToken || data.access_token
+      const token = data.token || data.accessToken
 
       if (token) {
         localStorage.setItem('propzy_token', token)
         api.defaults.headers.common.Authorization = `Bearer ${token}`
         const meRes = await api.get('/api/v1/auth/me')
         setCurrentUser(meRes.data)
+        if (meRes.data.role === 'OWNER') {
+          fetchMyProperties()
+        }
       }
 
-      setMessage(modal === 'register' ? 'Account created successfully!' : 'Login successful!')
       setModal(null)
-      setStatus(`Welcome, ${data.fullName || 'back'}!`)
+      setMessage('Email verified successfully! Welcome to Propzy.')
+      setStatus(`Welcome, ${data.fullName || 'User'}! Account verified.`)
       fetchProperties(0)
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string; fieldErrors?: Record<string, string> } } }
-      const errData = err.response?.data
-      if (errData?.fieldErrors) {
-        const firstErr = Object.values(errData.fieldErrors)[0]
-        setMessage(firstErr || 'Validation failed')
-      } else {
-        setMessage(errData?.message || 'Request failed. Please try again.')
-      }
+      const err = e as { response?: { data?: { message?: string } } }
+      setMessage(err.response?.data?.message || 'Invalid or expired verification code.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function resendVerificationCode() {
+    setLoading(true)
+    setMessage('')
+    try {
+      const r = await api.post('/api/v1/auth/resend-verification', {
+        email: verificationState.email.trim().toLowerCase(),
+      })
+      const code = r.data.verificationCode || ''
+      setVerificationState(prev => ({
+        ...prev,
+        code: code || prev.code,
+        demoCode: code || prev.demoCode,
+      }))
+      setMessage('A fresh verification code has been generated and sent.')
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      setMessage(err.response?.data?.message || 'Failed to resend code. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -282,6 +422,7 @@ function App() {
         bathrooms: '1',
       })
       fetchProperties(0)
+      fetchMyProperties()
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string; fieldErrors?: Record<string, string> } } }
       const errData = err.response?.data
@@ -296,12 +437,26 @@ function App() {
     }
   }
 
+  async function toggleAvailability(id: number) {
+    try {
+      const r = await api.patch(`/api/v1/properties/${id}/toggle-availability`)
+      const updated = r.data
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, available: updated.available } : p))
+      setMyProperties(prev => prev.map(p => p.id === id ? { ...p, available: updated.available } : p))
+      setMessage(`Listing marked as ${updated.available ? 'Available' : 'Rented'}.`)
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } }
+      setMessage(err.response?.data?.message || 'Failed to toggle availability.')
+    }
+  }
+
   async function deleteProperty(id: number) {
     if (!confirm('Are you sure you want to remove this property listing?')) return
     try {
       await api.delete(`/api/v1/properties/${id}`)
       setMessage('Property listing deleted.')
       fetchProperties(currentPage)
+      fetchMyProperties()
     } catch {
       setMessage('Failed to delete property. You may only delete your own listings.')
     }
@@ -374,14 +529,19 @@ function App() {
 
   function handleFilterSubmit(e?: React.FormEvent) {
     if (e) e.preventDefault()
+    setActiveTab('all')
     fetchProperties(0)
   }
+
+  const displayedProperties = activeTab === 'mine' ? myProperties : properties
 
   return (
     <main>
       <nav className="navbar">
         <a className="brand" href="#" aria-label="Propzy Home">
-          <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img" />
+          <div className="brand-logo-container">
+            <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img" />
+          </div>
         </a>
         <div className="nav-links">
           <a href="#explore">Explore stays</a>
@@ -495,82 +655,129 @@ function App() {
           </div>
         </div>
 
-        {properties.length > 0 ? (
+        {/* Tab Navigation for Property Owners: All Properties vs My Listed Properties */}
+        {currentUser && currentUser.role === 'OWNER' && (
+          <div className="tab-nav">
+            <button
+              className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveTab('all')}
+            >
+              <Home size={15}/> All Stays ({totalElements})
+            </button>
+            <button
+              className={`tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveTab('mine')
+                fetchMyProperties()
+              }}
+            >
+              <Sparkles size={15}/> My Listed Properties ({myProperties.length})
+            </button>
+          </div>
+        )}
+
+        {displayedProperties.length > 0 ? (
           <>
             <div className="property-grid">
-              {properties.map(p => (
-                <article key={p.id} className="property-card">
-                  <div className="property-badge">{p.propertyType}</div>
-                  <h3>{p.title}</h3>
-                  <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
-                  {p.description && <p className="property-desc">{p.description}</p>}
-                  <div className="property-specs">
-                    <span><Bed size={15}/> {p.bedrooms} Beds</span>
-                    <span><Bath size={15}/> {p.bathrooms} Baths</span>
-                  </div>
-                  <div className="property-footer">
-                    <b className="property-price">
-                      ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                      <small> / month</small>
-                    </b>
-                    <div className="property-card-actions">
-                      {currentUser && currentUser.userId === p.ownerId ? (
-                        <button
-                          className="btn-danger-icon"
-                          onClick={() => deleteProperty(p.id)}
-                          title="Delete your property listing"
-                        >
-                          <Trash2 size={16}/>
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            className="btn-outline btn-xs"
-                            onClick={() => openInquiryModal(p)}
-                            title="Contact owner about this listing"
-                          >
-                            <MessageSquare size={13}/> Inquire
-                          </button>
-                          <span className="owner-tag">by {p.ownerName}</span>
-                        </>
+              {displayedProperties.map(p => {
+                const isOwnListing = currentUser && currentUser.userId === p.ownerId
+                return (
+                  <article key={p.id} className="property-card">
+                    <div className="property-card-top">
+                      <span className="property-badge">{p.propertyType}</span>
+                      {isOwnListing && (
+                        <span className="own-listing-badge">⭐ Your Listing</span>
+                      )}
+                      {!p.available && (
+                        <span className="status-rented-badge">RENTED</span>
                       )}
                     </div>
-                  </div>
-                </article>
-              ))}
+                    <h3>{p.title}</h3>
+                    <p className="property-location"><MapPin size={14}/> {p.address}, {p.city}</p>
+                    {p.description && <p className="property-desc">{p.description}</p>}
+                    <div className="property-specs">
+                      <span><Bed size={15}/> {p.bedrooms} Beds</span>
+                      <span><Bath size={15}/> {p.bathrooms} Baths</span>
+                    </div>
+                    <div className="property-footer">
+                      <b className="property-price">
+                        ${Number(p.rentAmount).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        <small> / month</small>
+                      </b>
+                      <div className="property-card-actions">
+                        {isOwnListing ? (
+                          <div className="owner-actions">
+                            <button
+                              className={`btn-toggle-avail ${p.available ? 'is-avail' : 'is-rented'}`}
+                              onClick={() => toggleAvailability(p.id)}
+                              title={p.available ? 'Click to mark as rented' : 'Click to mark as available'}
+                            >
+                              {p.available ? 'Available' : 'Marked Rented'}
+                            </button>
+                            <button
+                              className="btn-danger-icon"
+                              onClick={() => deleteProperty(p.id)}
+                              title="Delete your property listing"
+                            >
+                              <Trash2 size={16}/>
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              className="btn-outline btn-xs"
+                              onClick={() => openInquiryModal(p)}
+                              title="Contact owner about this listing"
+                            >
+                              <MessageSquare size={13}/> Inquire
+                            </button>
+                            <span className="owner-tag">by {p.ownerName}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
 
-            {/* ISSUE 6: Functional Pagination Bar */}
-            <div className="pagination-bar">
-              <div className="pagination-info">
-                Showing page <b>{currentPage + 1}</b> of <b>{Math.max(1, totalPages)}</b> ({totalElements} total properties)
+            {/* Pagination Bar for All Stays */}
+            {activeTab === 'all' && (
+              <div className="pagination-bar">
+                <div className="pagination-info">
+                  Showing page <b>{currentPage + 1}</b> of <b>{Math.max(1, totalPages)}</b> ({totalElements} total properties)
+                </div>
+                <div className="pagination-controls">
+                  <button
+                    className="btn-outline btn-sm"
+                    disabled={currentPage === 0 || loading}
+                    onClick={() => fetchProperties(currentPage - 1)}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16}/> Previous
+                  </button>
+                  <span className="pagination-page-badge">{currentPage + 1}</span>
+                  <button
+                    className="btn-outline btn-sm"
+                    disabled={currentPage >= totalPages - 1 || loading}
+                    onClick={() => fetchProperties(currentPage + 1)}
+                    aria-label="Next page"
+                  >
+                    Next <ChevronRight size={16}/>
+                  </button>
+                </div>
               </div>
-              <div className="pagination-controls">
-                <button
-                  className="btn-outline btn-sm"
-                  disabled={currentPage === 0 || loading}
-                  onClick={() => fetchProperties(currentPage - 1)}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft size={16}/> Previous
-                </button>
-                <span className="pagination-page-badge">{currentPage + 1}</span>
-                <button
-                  className="btn-outline btn-sm"
-                  disabled={currentPage >= totalPages - 1 || loading}
-                  onClick={() => fetchProperties(currentPage + 1)}
-                  aria-label="Next page"
-                >
-                  Next <ChevronRight size={16}/>
-                </button>
-              </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="empty-state">
             <Home size={40}/>
-            <h3>No properties found</h3>
-            <p>Try searching for a different city or clearing rent filters.</p>
+            <h3>{activeTab === 'mine' ? 'No properties listed yet' : 'No properties found'}</h3>
+            <p>
+              {activeTab === 'mine'
+                ? 'Click "List Property" above to create and manage your first rental listing.'
+                : 'Try searching for a different city or clearing rent filters.'}
+            </p>
           </div>
         )}
       </section>
@@ -597,7 +804,9 @@ function App() {
 
       <footer>
         <a className="brand" href="#" aria-label="Propzy Home">
-          <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img-sm" />
+          <div className="brand-logo-container">
+            <img src="/propzy-logo.jpg" alt="Propzy Logo" className="brand-logo-img-sm" />
+          </div>
         </a>
         <span>Find your place. Start your next chapter.</span>
         <span>© 2026 Propzy — Production Platform</span>
@@ -610,7 +819,7 @@ function App() {
             <button className="modal-close" onClick={() => setModal(null)} aria-label="Close"><X size={20}/></button>
             <span className="eyebrow">WELCOME TO PROPZY</span>
             <h2 id="auth-title">{modal === 'register' ? 'Create your account' : 'Welcome back'}</h2>
-            <p>{modal === 'register' ? 'Start finding your next home.' : 'Log in to continue to Propzy.'}</p>
+            <p>{modal === 'register' ? 'Join Propzy to start finding or listing homes.' : 'Log in to continue to Propzy.'}</p>
             <form onSubmit={submitAuth}>
               {modal === 'register' && (
                 <>
@@ -621,23 +830,36 @@ function App() {
                       onChange={changeAuthForm}
                       required
                       maxLength={100}
-                      placeholder="Your full name"
+                      placeholder="e.g. Sourabh Sharma"
                     />
                   </label>
+                  <label>I want to join as</label>
+                  <div className="role-cards-container">
+                    <button
+                      type="button"
+                      className={`role-card-btn ${authForm.role === 'TENANT' ? 'selected' : ''}`}
+                      onClick={() => setAuthForm({ ...authForm, role: 'TENANT' })}
+                    >
+                      <b><Home size={16}/> Tenant</b>
+                      <small>Browse stays and submit inquiries to owners</small>
+                    </button>
+                    <button
+                      type="button"
+                      className={`role-card-btn ${authForm.role === 'OWNER' ? 'selected' : ''}`}
+                      onClick={() => setAuthForm({ ...authForm, role: 'OWNER' })}
+                    >
+                      <b><KeyRound size={16}/> Property Owner</b>
+                      <small>List properties and manage tenant inquiries</small>
+                    </button>
+                  </div>
                   <label>Phone (optional)
                     <input
                       name="phone"
                       value={authForm.phone}
                       onChange={changeAuthForm}
                       maxLength={20}
-                      placeholder="e.g. +1 555-0199"
+                      placeholder="e.g. +91 98765 43210"
                     />
-                  </label>
-                  <label>Account type
-                    <select name="role" value={authForm.role} onChange={changeAuthForm}>
-                      <option value="TENANT">Tenant (Search & Rent)</option>
-                      <option value="OWNER">Property Owner (List & Manage)</option>
-                    </select>
                   </label>
                 </>
               )}
@@ -662,15 +884,89 @@ function App() {
                   placeholder={modal === 'register' ? 'At least 8 characters' : 'Your password'}
                 />
               </label>
+              {modal === 'register' && (
+                <label>Confirm Password
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    value={authForm.confirmPassword}
+                    onChange={changeAuthForm}
+                    required
+                    minLength={8}
+                    placeholder="Re-enter password"
+                  />
+                  {authForm.confirmPassword && (
+                    <span className={`password-feedback ${authForm.password === authForm.confirmPassword ? 'match' : 'mismatch'}`}>
+                      {authForm.password === authForm.confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+                    </span>
+                  )}
+                </label>
+              )}
               {message && <p className="form-message" role="alert">{message}</p>}
               <button className="btn-dark submit-btn" type="submit" disabled={loading}>
-                {loading ? 'Please wait...' : modal === 'register' ? 'Create account' : 'Log in'} <ArrowRight size={17}/>
+                {loading ? 'Please wait...' : modal === 'register' ? 'Continue to Verification' : 'Log in'} <ArrowRight size={17}/>
               </button>
             </form>
             <p className="modal-switch">
               {modal === 'register' ? 'Already have an account?' : 'New to Propzy?'}{' '}
               <button onClick={() => { setMessage(''); setModal(modal === 'register' ? 'login' : 'register') }}>
                 {modal === 'register' ? 'Log in' : 'Create account'}
+              </button>
+            </p>
+          </section>
+        </div>
+      )}
+
+      {/* Email Verification Modal */}
+      {modal === 'verifyEmail' && (
+        <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <section className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="verify-title">
+            <button className="modal-close" onClick={() => setModal(null)} aria-label="Close"><X size={20}/></button>
+            <span className="eyebrow">SECURITY VERIFICATION</span>
+            <h2 id="verify-title">Verify Your Email</h2>
+            <p>We've sent a 6-digit confirmation code to <b>{verificationState.email}</b>.</p>
+
+            {verificationState.demoCode && (
+              <div className="verify-box">
+                <p>Verification Code (Instant Demo Access):</p>
+                <span
+                  className="demo-code-pill"
+                  onClick={() => setVerificationState(s => ({ ...s, code: s.demoCode }))}
+                  title="Click to fill automatically"
+                >
+                  {verificationState.demoCode}
+                </span>
+                <p style={{ fontSize: '11px', color: '#687263', marginTop: '6px' }}>Click code above to autofill</p>
+              </div>
+            )}
+
+            <form onSubmit={submitVerifyEmail}>
+              <label>6-Digit Verification Code
+                <input
+                  name="verificationCode"
+                  className="verify-code-input"
+                  value={verificationState.code}
+                  onChange={e => setVerificationState({ ...verificationState, code: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                  required
+                  maxLength={6}
+                  placeholder="123456"
+                  autoFocus
+                />
+              </label>
+              {message && <p className="form-message" role="alert">{message}</p>}
+              <button
+                className="btn-dark submit-btn"
+                type="submit"
+                disabled={loading || verificationState.code.length !== 6}
+              >
+                {loading ? 'Verifying...' : 'Verify Email & Sign In'} <ArrowRight size={17}/>
+              </button>
+            </form>
+
+            <p className="modal-switch">
+              Didn't receive code?{' '}
+              <button type="button" onClick={resendVerificationCode} disabled={loading}>
+                <RefreshCw size={13} style={{ verticalAlign: 'middle', marginRight: '3px' }}/> Resend Code
               </button>
             </p>
           </section>

@@ -48,6 +48,7 @@ public class DevDataInitializer implements CommandLineRunner {
         owner.setEmail("owner@propzy.com");
         owner.setPasswordHash(passwordEncoder.encode("Password123!"));
         owner.setRole(Role.OWNER);
+        owner.setEmailVerified(true);
         owner = userRepository.save(owner);
 
         // Create Demo Tenant
@@ -56,6 +57,7 @@ public class DevDataInitializer implements CommandLineRunner {
         tenant.setEmail("tenant@propzy.com");
         tenant.setPasswordHash(passwordEncoder.encode("Password123!"));
         tenant.setRole(Role.TENANT);
+        tenant.setEmailVerified(true);
         userRepository.save(tenant);
 
         // Seed 15 sample properties across cities

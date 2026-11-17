@@ -48,6 +48,11 @@ class InquiryControllerIT {
                 .content(regBody))
             .andExpect(status().isCreated());
 
+        userRepository.findByEmail(email).ifPresent(u -> {
+            u.setEmailVerified(true);
+            userRepository.save(u);
+        });
+
         String loginBody = String.format("""
             {
                 "email": "%s",

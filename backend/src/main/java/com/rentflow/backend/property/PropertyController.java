@@ -41,6 +41,21 @@ public class PropertyController {
             city, minRent, maxRent, page, size, sortBy, direction);
     }
 
+    @GetMapping("/mine")
+    public Page<PropertyResponse> listMyProperties(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Principal principal) {
+        return service.listMyProperties(principal.getName(), page, size);
+    }
+
+    @PatchMapping("/{id}/toggle-availability")
+    public PropertyResponse toggleAvailability(
+            @PathVariable Long id,
+            Principal principal) {
+        return service.toggleAvailability(principal.getName(), id);
+    }
+
     @GetMapping("/{id}")
     public PropertyResponse get(@PathVariable Long id) {
         return service.get(id);

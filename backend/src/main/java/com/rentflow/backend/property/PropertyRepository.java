@@ -19,6 +19,10 @@ public interface PropertyRepository extends JpaRepository<Property, Long> {
 
     List<Property> findByOwnerIdOrderByCreatedAtDesc(Long ownerId);
 
+    @Query(value = "SELECT p FROM Property p JOIN FETCH p.owner WHERE p.owner.id = :ownerId",
+           countQuery = "SELECT count(p) FROM Property p WHERE p.owner.id = :ownerId")
+    Page<Property> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
+
     @Query(value = """
         SELECT p FROM Property p
         JOIN FETCH p.owner

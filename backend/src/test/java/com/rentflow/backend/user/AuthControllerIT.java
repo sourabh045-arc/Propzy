@@ -23,9 +23,13 @@ class AuthControllerIT {
     @Autowired private MockMvc mvc;
     private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired private UserRepository userRepository;
+    @Autowired private com.rentflow.backend.property.PropertyRepository propertyRepository;
+    @Autowired private com.rentflow.backend.inquiry.InquiryRepository inquiryRepository;
 
     @BeforeEach
     void cleanDb() {
+        inquiryRepository.deleteAll();
+        propertyRepository.deleteAll();
         userRepository.deleteAll();
     }
 
@@ -190,6 +194,11 @@ class AuthControllerIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(body))
                 .andExpect(status().isCreated());
+
+            userRepository.findByEmail("test@example.com").ifPresent(u -> {
+                u.setEmailVerified(true);
+                userRepository.save(u);
+            });
         }
 
         @Test
@@ -257,6 +266,129 @@ class AuthControllerIT {
                     .content("{}"))
                 .andExpect(status().isBadRequest());
         }
+
+        @Test
+        @DisplayName("unverified user login returns 403 Forbidden")
+        void unverifiedUserLoginReturnsForbidden() throws Exception {
+            String regBody = """
+                {
+                    "fullName": "Unverified User",
+                    "email": "unverified@example.com",
+                    "password": "password123",
+                    "role": "TENANT"
+                }
+                """;
+            mvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(regBody))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.emailVerified").value(false))
+                .andExpect(jsonPath("$.verificationCode").isString());
+
+            String loginBody = """
+                {
+                    "email": "unverified@example.com",
+                    "password": "password123"
+                }
+                """;
+            mvc.perform(post("/api/v1/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(loginBody))
+                .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("verify email with valid code succeeds and returns JWT token")
+        void verifyEmailSuccess() throws Exception {
+            String regBody = """
+                {
+                    "fullName": "Code User",
+                    "email": "codeuser@example.com",
+                    "password": "password123",
+                    "role": "TENANT"
+                }
+                """;
+            MvcResult regResult = mvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(regBody))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+            String code = objectMapper.readTree(regResult.getResponse().getContentAsString())
+                    .get("verificationCode").asText();
+
+            String verifyBody = String.format("""
+                {
+                    "email": "codeuser@example.com",
+                    "code": "%s"
+                }
+                """, code);
+
+            mvc.perform(post("/api/v1/auth/verify-email")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(verifyBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty())
+                .andExpect(jsonPath("$.email").value("codeuser@example.com"));
+        }
+
+        @Test
+        @DisplayName("verify email with invalid code returns 400 Bad Request")
+        void verifyEmailInvalidCode() throws Exception {
+            String regBody = """
+                {
+                    "fullName": "Invalid Code User",
+                    "email": "invalidcode@example.com",
+                    "password": "password123",
+                    "role": "TENANT"
+                }
+                """;
+            mvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(regBody))
+                .andExpect(status().isCreated());
+
+            String verifyBody = """
+                {
+                    "email": "invalidcode@example.com",
+                    "code": "999999"
+                }
+                """;
+
+            mvc.perform(post("/api/v1/auth/verify-email")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(verifyBody))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("resend verification code returns new code")
+        void resendVerification() throws Exception {
+            String regBody = """
+                {
+                    "fullName": "Resend User",
+                    "email": "resend@example.com",
+                    "password": "password123",
+                    "role": "TENANT"
+                }
+                """;
+            mvc.perform(post("/api/v1/auth/register")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(regBody))
+                .andExpect(status().isCreated());
+
+            String resendBody = """
+                {
+                    "email": "resend@example.com"
+                }
+                """;
+
+            mvc.perform(post("/api/v1/auth/resend-verification")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(resendBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.verificationCode").isString());
+        }
     }
 
     // ─── /me endpoint ────────────────────────────────────────────────
@@ -278,6 +410,11 @@ class AuthControllerIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(regBody))
                 .andExpect(status().isCreated());
+
+            userRepository.findByEmail("me@example.com").ifPresent(u -> {
+                u.setEmailVerified(true);
+                userRepository.save(u);
+            });
 
             String loginBody = """
                 {
